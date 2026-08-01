@@ -95,3 +95,24 @@ run_claude_in() {
 	) | tee "$raw_log" \
 		| jq -r --unbuffered -f "$LOOP_DIR/format-stream.jq" 2>/dev/null
 }
+
+# 生ログを見て、失敗が「一時的な API エラー」かどうかを判定する。
+#
+# `Connection closed mid-response` のようなネットワーク起因の中断は、
+# コードやプロンプトの問題ではないのでリトライする価値がある。
+# 一方、プロンプトの誤りや実装の詰まりは何度やっても同じなのでリトライしない。
+#
+# 引数1: 生ログ (.jsonl) のパス
+# 戻り値: 一時的なエラーなら 0
+is_transient_error() {
+	local raw_log="$1"
+	[ -f "$raw_log" ] || return 1
+
+	# result イベントの terminal_reason が api_error なら一時的とみなす
+	local reason
+	reason="$(tail -5 "$raw_log" 2>/dev/null \
+		| jq -r 'select(.type=="result") | .terminal_reason // empty' 2>/dev/null \
+		| tail -1)"
+
+	[ "$reason" = "api_error" ]
+}
