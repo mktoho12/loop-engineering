@@ -46,6 +46,15 @@ if [ -n "$MISSING" ]; then
 	exit 1
 fi
 
+# タイムアウトコマンドは無人運転の生命線なので、個別に確認する。
+# これが無いと CLAUDE_TIMEOUT が黙って無効化され、ハングしたループが
+# 止まらなくなる（実際にそうなっていた）。落とさず警告に留めるのは、
+# タイムアウトが無くてもループ自体は動作するため。
+if ! command -v timeout >/dev/null 2>&1 && ! command -v gtimeout >/dev/null 2>&1; then
+	echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARN: timeout / gtimeout が見つかりません" >&2
+	echo "[$(date '+%Y-%m-%d %H:%M:%S')]       実行時間の上限が効きません。brew install coreutils で修正できます" >&2
+fi
+
 # --- 二重起動の防止 ---
 # 前回の実行がまだ終わっていないのに次が始まると、worktree や状態ファイルが競合する。
 # 発見ループと修正ループは同時に走ってよいので、ロックは種類ごとに分ける。

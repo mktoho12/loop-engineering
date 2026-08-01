@@ -21,7 +21,14 @@ MAX_NEW_ISSUES=3
 # 修正ループが1回で処理する Issue 数。1つずつ確実に片付ける。
 MAX_FIX_PER_RUN=1
 # claude -p の実行時間上限（秒）。ハングしたループが居座るのを防ぐ。
-CLAUDE_TIMEOUT=1800
+#
+# 45分。実測（修正ループ11回）の分布は中央値 6.4分・最長 44.1分で、
+# 正常に完了する実行が 44分かかった実績がある。30分にすると、
+# 詰まった実行ではなく「時間のかかる正常な実行」を殺すことになる。
+#
+# なお launchd 側の ExitTimeOut はこれより大きくしておくこと
+# （先にこちらが効いて、生ログとログ出力が残るようにするため）。
+CLAUDE_TIMEOUT=2700
 
 # --- ラベル ---
 # 修正ループが「触ってはいけない」Issue に付けるラベル。
@@ -76,11 +83,21 @@ run_claude_in() {
 	local prompt="$2"
 	local raw_log="${3:-/dev/null}"
 
+	# タイムアウトコマンドを探す。macOS には標準の `timeout` がないため、
+	# 通常は coreutils の `gtimeout` が使われる。
+	#
+	# 見つからない場合は警告を出す。以前はここで黙って無効化していたため、
+	# CLAUDE_TIMEOUT が設定されているのに一度も効いておらず、44分の実行が
+	# そのまま通っていた（実際にハングしても止まらない状態だった）。
+	# 静かに無防備になるくらいなら、うるさく知らせる。
 	local timeout_prefix=""
 	if command -v timeout >/dev/null 2>&1; then
 		timeout_prefix="timeout $CLAUDE_TIMEOUT"
 	elif command -v gtimeout >/dev/null 2>&1; then
 		timeout_prefix="gtimeout $CLAUDE_TIMEOUT"
+	else
+		log "WARN: timeout / gtimeout が見つかりません。実行時間の上限なしで claude を起動します"
+		log "      修正するには: brew install coreutils"
 	fi
 
 	(

@@ -11,12 +11,28 @@
 		<string>fix</string>
 	</array>
 
-	<!-- 毎時 0 分に起動。オープン Issue がなければ数秒で終わる（トークン消費ゼロ）。 -->
+	<!-- 30分ごと（毎時 0 分・30 分）に起動。
+	     オープン Issue がなければ数秒で終わる（トークン消費ゼロ）。
+
+	     実測（11回）の所要時間は中央値 6.4分・最長 44.1分。長い実行は
+	     次の起動と重なるが、fix-loop.sh 側が worktree とブランチの存在で
+	     処理済み Issue をスキップし、run-scheduled.sh の PID ロックが
+	     同種ループの二重起動を防ぐため、同じ Issue を二重に触ることはない。
+
+	     これ以上短くしないこと。15分間隔にすると長時間の実行が常に重なり、
+	     node_modules を共有した状態での並行ビルド（.next / dist / turbo
+	     キャッシュ）を踏むことになる。そこは検証していない。 -->
 	<key>StartCalendarInterval</key>
-	<dict>
-		<key>Minute</key>
-		<integer>0</integer>
-	</dict>
+	<array>
+		<dict>
+			<key>Minute</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>Minute</key>
+			<integer>30</integer>
+		</dict>
+	</array>
 
 	<!-- スリープ等で起動を逃した場合、復帰時に1回だけ実行する。 -->
 	<key>RunAtLoad</key>
@@ -42,10 +58,12 @@
 		<string>ja_JP.UTF-8</string>
 	</dict>
 
-	<!-- 修正ループは1回あたり最大15分程度。それを超えたら異常とみなす。
-	     claude 側にも CLAUDE_TIMEOUT=1800 があるので、その外側の保険。 -->
+	<!-- claude 側の CLAUDE_TIMEOUT=2700（45分）が先に効き、その外側の保険として
+	     ここを 3000（50分）にする。順序が逆だと launchd が先に SIGKILL を送り、
+	     生ログもループ側の後片付け（worktree の削除）も走らないまま終わる。
+	     CLAUDE_TIMEOUT を変えるときは、必ずこちらもそれより大きく保つこと。 -->
 	<key>ExitTimeOut</key>
-	<integer>2400</integer>
+	<integer>3000</integer>
 
 	<key>ProcessType</key>
 	<string>Background</string>
