@@ -54,13 +54,38 @@ cd loops
 
 このループから実際に出た PR と Issue:
 
-| # | 内容 | 状態 |
-|---|---|---|
-| [PR #1](https://github.com/EngineMaker/world-issue-tracker/pull/1) | 壊れていた typecheck と CI のテスト実行を修正 | マージ済み |
-| [PR #5](https://github.com/EngineMaker/world-issue-tracker/pull/5) | `DELETE /issues/:id` を追加 | マージ済み |
-| [PR #6](https://github.com/EngineMaker/world-issue-tracker/pull/6) | PATCH / DELETE に所有者チェックを追加（**自動ループ**） | マージ済み |
-| [PR #7](https://github.com/EngineMaker/world-issue-tracker/pull/7) | DELETE の重複テストを統合（**自動ループ + worktree**） | CI 緑 |
-| [Issue #4](https://github.com/EngineMaker/world-issue-tracker/issues/4) | `.dev.vars.example` が存在しない | オープン |
+| # | 内容 | 出どころ | 状態 |
+|---|---|---|---|
+| [PR #1](https://github.com/EngineMaker/world-issue-tracker/pull/1) | 壊れていた typecheck と CI のテスト実行を修正 | 手動 | マージ済み |
+| [PR #5](https://github.com/EngineMaker/world-issue-tracker/pull/5) | `DELETE /issues/:id` を追加 | 手動ループ | マージ済み |
+| [PR #6](https://github.com/EngineMaker/world-issue-tracker/pull/6) | PATCH / DELETE に所有者チェックを追加 | **自動ループ** | マージ済み |
+| [PR #7](https://github.com/EngineMaker/world-issue-tracker/pull/7) | DELETE の重複テストを統合 | **自動 + worktree** | マージ済み |
+| [PR #11](https://github.com/EngineMaker/world-issue-tracker/pull/11) | 公開 GET から Clerk User ID の露出を防ぐ | **発見→修正 連結** | マージ済み |
+| [Issue #9](https://github.com/EngineMaker/world-issue-tracker/issues/9) | CSRF 対策がない | **発見ループ** | オープン |
+| [Issue #10](https://github.com/EngineMaker/world-issue-tracker/issues/10) | 認証モックが回帰を検出できない | **発見ループ** | オープン |
+| [Issue #4](https://github.com/EngineMaker/world-issue-tracker/issues/4) | `.dev.vars.example` が存在しない | 手動 | オープン |
+
+### ループが一周した
+
+**PR #11 は発見ループが立てた Issue #8 を修正ループが拾ったもの。**
+
+```
+発見ループ  → Issue #8 を作成（本番 API に curl を投げて実証つき）
+              ↓
+GitHub      → キュー / 外部メモリ
+              ↓
+修正ループ  → worktree で作業、レビュアーが変異体で検証、PR #11 を作成
+              ↓
+人間        → マージ（ここだけ人間）
+              ↓
+GitHub      → `Closes #8` で Issue #8 が自動クローズ
+```
+
+**人間がやったのはマージのボタンを押すことだけ。**
+問題の発見も、再現の実証も、実装も、テストも、レビューも、PR の作成も自動で回った。
+
+Boris Cherny の「スマホから1日に何十本ものPRを承認するだけ」という状態は、
+この構造のことだったと分かる。
 
 ## 学んだことの要約
 
