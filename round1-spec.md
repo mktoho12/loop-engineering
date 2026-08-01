@@ -20,7 +20,7 @@ DELETE /issues/:id
 | 状況 | ステータス | レスポンスボディ |
 |---|---|---|
 | 未認証 | 401 | `{ "error": "Unauthorized" }` |
-| 対象が存在しない | 404 | `{ "error": "Not found" }` |
+| 対象が存在しない | 404 | `{ "error": "Issue not found" }` |
 | 削除成功 | 200 | 削除された Issue オブジェクト |
 
 - **認証必須**。既存の `POST` / `PATCH` と同じく `requireAuth` ミドルウェアで保護する
