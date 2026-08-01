@@ -92,7 +92,7 @@ tail -f loops/logs/launchd-fix.log
 
 このループから実際に出た PR と Issue:
 
-**マージされた PR: 9本 / クローズされた Issue: 7件**
+**マージされた PR: 10本 / クローズされた Issue: 8件**（2026-08-02 時点）
 
 | # | 内容 | 出どころ |
 |---|---|---|
@@ -105,6 +105,7 @@ tail -f loops/logs/launchd-fix.log
 | [#19](https://github.com/EngineMaker/world-issue-tracker/pull/19) | 環境変数サンプルと README 検証テスト | 取りこぼし回収 |
 | [#20](https://github.com/EngineMaker/world-issue-tracker/pull/20) | GET /issues のクエリ検証に異常系テストを追加 | **無人運転** |
 | [#27](https://github.com/EngineMaker/world-issue-tracker/pull/27) | Clerk 認証テストのモック層を下げる | **無人運転（3度目の正直）** |
+| [#28](https://github.com/EngineMaker/world-issue-tracker/pull/28) | `updated_at` の空振りテストを実質的な検証に置き換え | **無人運転** |
 
 **このうち5本は、人間がマージボタンを押しただけ。**
 問題の発見、再現の実証、実装、テスト、レビュー、PR 作成はすべて自動。
