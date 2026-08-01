@@ -39,7 +39,13 @@ mkdir -p "$STATE_DIR" "$LOG_DIR" "$WORKTREE_ROOT"
 #   1. すでにブランチが存在する Issue（着手済み or 作業中）
 #   2. SKIP_LABEL が付いている Issue（人間が議論中）
 #
-# 優先順位: bug > その他。同じなら Issue 番号が小さい順（古いものから）。
+# 優先順位: PRIORITY_LABEL > bug > その他。同じなら Issue 番号が小さい順（古いものから）。
+#
+# PRIORITY_LABEL を最上位に置いているのは、「bug かどうか」だけで並べると
+# ユーザーから見た重要度が全く反映されないため。実際、コード品質の bug が10件
+# 並ぶ一方で「トップページが API を呼んでおらず画面が動かない」は後回しになり、
+# 動かないプロダクトを磨き続ける順序になっていた。
+# 人間が「これを先に」と判断したものを差し込めるようにする。
 
 cd "$WORKDIR"
 
@@ -108,8 +114,9 @@ else
 
 		SELECTED="$num"
 		break
-	done < <(echo "$CANDIDATES" | jq -r '
+	done < <(echo "$CANDIDATES" | jq -r --arg prio "$PRIORITY_LABEL" '
 		sort_by(
+			(if ([.labels[].name] | index($prio)) then 0 else 1 end),
 			(if ([.labels[].name] | index("bug")) then 0 else 1 end),
 			.number
 		) | .[].number

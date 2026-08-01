@@ -36,6 +36,10 @@ CLAUDE_TIMEOUT=2700
 SKIP_LABEL="needs-discussion"
 # 発見ループが立てた Issue に付けるラベル（人間が立てたものと区別する）。
 BOT_LABEL="found-by-loop"
+# 修正ループが最優先で着手する Issue のラベル。
+# 「bug かどうか」だけで並べるとユーザーから見た重要度が反映されないため、
+# 人間が「これを先に」と指定するための差し込み口。
+PRIORITY_LABEL="priority-high"
 
 # --- ログ ---
 log() {
