@@ -1,0 +1,249 @@
+# 実験1: 手動ループの骨格を見る
+
+開始: 2026-08-01
+
+## 目的
+
+ループエンジニアリングの**骨格**を、自動化する前に手で1周まわして目に見える形にする。
+自動化はその次（実験2）。まず「何を自動化しようとしているのか」を理解するのが狙い。
+
+## 題材
+
+**リポジトリ**: `EngineMaker/world-issue-tracker` (`/Users/mktoho/work/ai/world-issue-tracker`)
+作りかけの実プロジェクト。Turborepo + Hono/Cloudflare Workers + Next.js + D1 + Zod + Vitest + Biome。
+
+**なぜこれが題材として良いか**:
+- API 側に既にテストが21ケースある（実 D1 = miniflare 上で走る vitest）
+- → **機械が判定できる停止条件が最初から存在する**。ループはこれがないと回らない
+- `bun run test` / `bun run lint` / `bun run check` がモノレポ全体に通っている
+
+**タスク**: `DELETE /issues/:id` の追加（唯一欠けている CRUD 操作）
+
+初回題材にこれを選んだ理由:
+- 既存の `PATCH /issues/:id` と同じ型で書けるので、作り手が迷わない
+- テストの土台（`createIssue()` ヘルパ、beforeEach の DB クリア）がそのまま使える
+- **罠が1つだけある** — `apps/api/src/index.ts` の CORS `allowMethods` に `"DELETE"` を足し忘れやすい。
+  これは **vitest では落ちない**（テストは Hono アプリを直接叩くのでプリフライトを経由しない）。
+  → **検証役の価値が見える**。作り手が「テストが通った」と言っても、検証役が独立に見ないと拾えない罠
+
+## ループの設計
+
+```
+[仕様] --> (1) 作り手エージェント --> (2) 機械的検証 --> (3) 検証役エージェント --> [停止 or 差し戻し]
+              ↑                                                    |
+              +---------------- 差し戻し（指摘つき） ----------------+
+```
+
+### 各段階の役割と停止条件
+
+| # | 役割 | 誰が | 停止条件（機械判定） |
+|---|---|---|---|
+| 0 | **仕様を書く** | 人間 | — |
+| 1 | **実装する** | 作り手エージェント | — |
+| 2 | **機械的検証** | シェル | `bun run test` `bun run lint` `bun run check` が全部 exit 0 |
+| 3 | **意味的検証** | 検証役エージェント（作り手とは別コンテキスト） | 「仕様を満たすか」「見落としはないか」を判定 |
+
+**重要な原則**: (1) と (3) は**別のエージェント**にする。自分の書いたコードの採点は甘くなるため。
+これがループエンジニアリングで一番効く一手とされている（Addy Osmani / Business Insider）。
+
+**(2) と (3) の役割分担**:
+- (2) は速くて確実だが、**書かれていないことは検出できない**（CORS の罠がまさにこれ）
+- (3) は遅くて曖昧だが、**仕様と実装の意味的なズレ**を見つけられる
+- 両方いる。片方だけでは不十分
+
+## 記録の方針
+
+このセッションが消えても続きが追えるように、以下を都度残す:
+- 各ラウンドで**誰が何をして、何が起きたか**を本ファイルに追記
+- 節目ごとに `loop-engineering` リポジトリにコミット
+- `world-issue-tracker` 側の変更は別リポジトリなので、そちらでもコミットする（未 push、レビュー後に判断）
+
+---
+
+## 実行ログ
+
+### 事前調査（完了）
+
+`world-issue-tracker` の現状把握をサブエージェントで実施。判明した主なこと:
+
+- API: `GET /`, `GET /health`, `POST /issues`, `GET /issues`, `GET /issues/:id`, `PATCH /issues/:id` が実装済み。全部本物（スタブなし）
+- テスト: `apps/api/test/` に 21 ケース。`@cloudflare/vitest-pool-workers` で実 D1 上で走る
+- Web: 完全なプレースホルダ。API 未接続
+- DB: `issues` テーブル1つのみ
+- typecheck のタスク名は `typecheck` ではなく **`check`**
+
+**副産物として見つかった既存バグ2件**（今回のループの対象外だが記録）:
+1. `.github/workflows/ci.yml` が `bun test` を実行している。これは Bun 内蔵ランナーで vitest ではない。正しくは `bun run test` → **CI でテストが実際には走っていない疑い**
+2. `PATCH /issues/:id` に所有者チェックがない。`user_id` は保存しているのに、ログインしていれば誰でも他人の Issue を更新できる
+
+### ラウンド0: ベースライン確認 → **赤だった**
+
+ループを回す前に「今テストが通る状態か」を確認した。
+ここが赤いままループを始めると、作り手の失敗と既存の失敗が区別できなくなるため。
+
+| コマンド | 結果 |
+|---|---|
+| `bun run test` | ✅ 緑（25 passed / 2 files） |
+| `bun run lint` | ✅ 緑（Biome, 24ファイル） |
+| `bun run check` | ❌ **赤**（tsc, 約40エラー） |
+
+**これはループの前提が崩れている状態**。停止条件の1つが常に赤だと、作り手が仕事をしたかどうか判定できない。
+
+#### 原因
+
+エラー約40件はすべて1つの根本原因から芋づる式に出ている:
+
+```
+test/index.test.ts(1,21): error TS2307: Cannot find module 'cloudflare:test' or its corresponding type declarations.
+```
+
+`@cloudflare/vitest-pool-workers` が提供する仮想モジュール `cloudflare:test` の型定義が
+tsconfig に取り込まれていない。その結果:
+
+1. `import { env } from "cloudflare:test"` の型が落ちる
+2. → `res.json()` の戻りが `unknown` のまま
+3. → `TS18046: 'body' is of type 'unknown'` が使用箇所すべてに伝播（これが大半）
+
+**テストは緑なのに typecheck が赤**という状態。vitest は実行時に解決できるので走るが、
+tsc は型を知らないので落ちる。
+
+#### 判断: ループの題材とは分離して、先に直す
+
+これは今回のループ（DELETE 追加）とは無関係な既存の問題。
+ただし**土台が赤いままではループを評価できない**ので、ラウンド0の作業として先に片付ける。
+
+これ自体がループエンジニアリングの教訓になっている:
+> **ループを回す前に、停止条件が正しく機能することを確かめる。**
+> 「テストが通るまで回す」ループは、テストが最初から嘘をついていたら何も保証しない。
+
+#### 実際の原因は2つだった（当初の見立ては半分だけ正しかった）
+
+最初「40件すべてが `cloudflare:test` 由来の芋づる」と見立てたが、実際は独立した2つの問題だった:
+
+**原因1: `cloudflare:test` の型が読まれていない（TS2307 × 2件）**
+
+`apps/api/tsconfig.json` に `"types": ["@cloudflare/workers-types"]` と書かれていた。
+tsconfig の `types` は**明示するとそこに書いたものだけ**を読み込むため、
+`@cloudflare/vitest-pool-workers` が提供する `cloudflare:test` の型宣言が除外されていた。
+
+修正:
+- `types` 配列に `"@cloudflare/vitest-pool-workers"` を追加
+- `apps/api/test/env.d.ts` を新規作成し、`ProvidedEnv` に既存の `Bindings` 型を接続
+  （これで `env.DB` が `D1Database` として型付く）
+
+**原因2: `res.json()` が `unknown` を返す（TS18046 × 40件、TS2353 × 1件）**
+
+これは原因1とは無関係。`Response.json()` の標準シグネチャが `Promise<unknown>` なので、
+`cloudflare:test` が解決できてもこちらは残る。tsconfig が `strict` なので `unknown` のまま
+プロパティを引けずエラーになっていた。
+
+修正（呼び出し側40箇所を個別に直すのではなく、ヘルパを1つ足す方針）:
+- `readBody(res)` ヘルパを追加し、`await res.json()` → `await readBody(res)` に一括置換
+- `validIssue` に `IssueInput` 型を付与（`category` が optional であることを表現 → TS2353 解消）
+- `index.test.ts` の1箇所だけインライン型注釈（ヘルパを置くほどでもないため）
+
+#### ラウンド0 の結果
+
+| コマンド | 修正前 | 修正後 |
+|---|---|---|
+| `bun run test` | ✅ 25 passed | ✅ 25 passed |
+| `bun run lint` | ✅ | ✅ |
+| `bun run check` | ❌ 41 errors | ✅ |
+
+**変更したファイル**（すべて `world-issue-tracker` 側）:
+- `apps/api/tsconfig.json` — `types` に vitest-pool-workers を追加
+- `apps/api/test/env.d.ts` — 新規。`ProvidedEnv` の型接続
+- `apps/api/test/issues.test.ts` — `readBody()` ヘルパ追加、`IssueInput` 型追加、27箇所置換
+- `apps/api/test/index.test.ts` — 1箇所にインライン型注釈
+
+これで**停止条件が信頼できる状態**になった……と思ったら、まだ続きがあった。
+
+### ラウンド0.5: PR を出したら CI が落ちた（3つ目の壊れ）
+
+ここまでを PR にした → **CI が fail**。
+ただし PR の変更が原因ではなく、**PR 本文で「別 PR で対応したほうがいい」と指摘していた既存バグ**が
+そのまま表面化したもの。
+
+```
+ci  Lint        ✅
+ci  Type check  ✅  ← この PR で直した箇所。CI 上でも通った
+ci  Test        ❌
+```
+
+エラー:
+```
+error: Cannot find package 'cloudflare:test' from '.../apps/api/test/issues.test.ts'
+ 0 pass
+ 2 fail
+```
+
+**原因**: `.github/workflows/ci.yml` が `bun test` を実行していた。
+これは **Bun 内蔵のテストランナー**で、vitest ではない。
+vitest の設定（`vitest.config.ts` の `defineWorkersConfig`）を完全に無視して
+テストファイルを直接実行するので、`cloudflare:test` を解決できずに落ちる。
+
+ルートの `package.json` は `"test": "turbo test"` なので、正しくは **`bun run test`**。
+
+**最も重要な発見**: ワークフローは `on: pull_request` のみで、
+**これが初めての PR 実行だった**（過去2回の Actions 実行は `main` への push イベント）。
+つまりこのバグは**一度も実行されずに眠っていた**。
+
+修正: `bun test` → `bun run test` の1行。この PR に含めた。
+
+### ラウンド0 全体の総括: 「壊れた検証」が3層あった
+
+ループを1周も回す前に、検証の仕組みが3箇所壊れていた:
+
+| # | 何が壊れていたか | なぜ気づかれなかったか |
+|---|---|---|
+| 1 | tsconfig が vitest-pool-workers の型を読まない | vitest は実行時に解決するのでテストは緑 |
+| 2 | `res.json()` が `unknown` で 40 箇所エラー | 同上。tsc を手で叩かないと見えない |
+| 3 | CI が vitest ではなく Bun 内蔵ランナーを実行 | **ワークフローが一度も実行されていなかった** |
+
+**これがラウンド0で得た一番大きな教訓**:
+
+> ループエンジニアリングは「機械が判定できる停止条件」に全体重を預ける手法である。
+> だからこそ、**その停止条件自体が本当に機能しているかを最初に確かめないと、
+> ループは「何も検証していないのに緑を返し続ける装置」になる。**
+
+Ng が「仕様と一緒に evals を渡せ」と言うとき、その evals が正しく動くことは暗黙の前提になっている。
+実プロジェクトではその前提がすでに崩れていることがある。今回がまさにそれだった。
+
+3つとも「緑に見えていたが、実際には検証できていなかった」という同じ形をしている。
+**無人で回すループに載せる前にこれを見つけられたのは幸運**だった。
+仮にこの状態で「テストが通るまで回す」ループを起動していたら、
+CI は最初から赤（＝永久に止まらない）か、ローカルのテストだけ見て
+「緑だから完了」と誤って停止していた。
+
+### PR と CI の結果
+
+- https://github.com/EngineMaker/world-issue-tracker/pull/1
+- ブランチ: `fix/typecheck-vitest-pool-workers-types`
+- コミット2本: typecheck 修正 / CI 修正
+
+**CI 緑になった**。しかも「走らずに緑」ではないことをログで確認済み:
+
+```
+ci  Lint        Tasks: 4 successful, 4 total
+ci  Type check  Tasks: 4 successful, 4 total
+ci  Test        $ turbo test
+ci  Test        $ vitest run
+ci  Test        [vpw:info] Starting isolated runtimes for vitest.config.ts...
+ci  Test         Test Files  2 passed (2)
+ci  Test              Tests  25 passed (25)
+```
+
+`turbo test` → `vitest run` → vitest-pool-workers の隔離ランタイム起動 → 25件パス、まで確認できた。
+**これで初めて「CI が緑 = 実際に検証された」が成立する状態になった。**
+
+ここは自分で自分に課した検証でもある。「CI が緑になった」だけで満足すると、
+今回直したばかりの罠（＝走っていないのに緑）を自分で踏み直すことになる。
+
+**未マージ**。レビュー待ち。次のラウンド（DELETE 追加）はこの PR がマージされてから、
+またはこのブランチから派生させて進める。
+
+---
+
+## ラウンド1: DELETE /issues/:id を作り手↔検証役のループで実装（未着手）
+
+ここからが本来の題材。ラウンド0で土台が整ったので、ようやくループを回せる。
