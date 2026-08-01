@@ -99,7 +99,9 @@ if [ -n "$PREV_HEAD" ] && [ "$CURRENT_HEAD" != "$PREV_HEAD" ]; then
 
 $(git diff --name-only "$PREV_HEAD" "$CURRENT_HEAD" 2>/dev/null | head -40)"
 else
-	SCAN_HINT="前回スキャンからコードの変更はありません。今回は「$LENS_NAME」の観点で、これまで見落とされていた問題を探してください。"
+	# 変数の直後に全角文字が来ると bash 3.2 が変数名の一部と解釈するため、
+	# 波括弧で境界を明示する（`$LENS_NAME」` は `LENS_NAME」` という変数名になる）
+	SCAN_HINT="前回スキャンからコードの変更はありません。今回は「${LENS_NAME}」の観点で、これまで見落とされていた問題を探してください。"
 fi
 
 PROMPT="$(cat "$PROMPT_DIR/discover.md")"
