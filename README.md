@@ -12,6 +12,7 @@
 | [01-experiment-manual-loop.md](01-experiment-manual-loop.md) | 実験1: 手動ループ。**停止条件が3箇所壊れていた**話と、素朴な3条件が認可欠陥を見逃した話 |
 | [02-issue-driven-loop.md](02-issue-driven-loop.md) | 設計転換: GitHub Issue をキューにして発見と修正を疎結合にする |
 | [03-automated-loops.md](03-automated-loops.md) | 自動ループの実装。早期終了ガード、worktree 隔離、ハマったバグ、コスト実測 |
+| [04-scheduled-operation.md](04-scheduled-operation.md) | **launchd で無人運転**。PATH・Keychain 認証・二重起動防止、運用上の注意 |
 | [round1-spec.md](round1-spec.md) | 実験1で作り手エージェントに渡した仕様書 |
 
 ## 実装したループ
@@ -49,6 +50,36 @@ cd loops
 - 修正ループ: オープン Issue がない / 全部着手済み → SKIP
 - 発見ループ: HEAD が前回と同じ かつ 全観点を一巡済み → SKIP
 - 発見ループ: オープン Issue が15件以上（修正が追いついていない）→ SKIP
+
+### 定期実行中（launchd）
+
+**現在この2つが自動で走っています。**
+
+| ループ | 起動 |
+|---|---|
+| 修正ループ | 毎時 **0分** |
+| 発見ループ | 毎時 **30分** |
+
+```bash
+# 状態を見る
+launchctl list | grep loop-engineering
+
+# 止める
+launchctl unload ~/Library/LaunchAgents/dev.mktoho.loop-engineering.{fix,discover}.plist
+
+# 再開する
+launchctl load ~/Library/LaunchAgents/dev.mktoho.loop-engineering.{fix,discover}.plist
+
+# 今すぐ1回だけ走らせる
+launchctl start dev.mktoho.loop-engineering.fix
+
+# ログを追う
+tail -f loops/logs/launchd-fix.log
+```
+
+走っている最中に緊急停止するなら `pkill -f "fix-loop.sh"` と `rm -rf loops/state/*.lock`。
+
+詳細は [04-scheduled-operation.md](04-scheduled-operation.md) を参照。
 
 ## これまでの成果
 

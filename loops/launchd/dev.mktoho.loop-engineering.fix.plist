@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>dev.mktoho.loop-engineering.fix</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/mktoho/work/ai/loop-engineering/loops/run-scheduled.sh</string>
+		<string>fix</string>
+	</array>
+
+	<!-- 毎時 0 分に起動。オープン Issue がなければ数秒で終わる（トークン消費ゼロ）。 -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+
+	<!-- スリープ等で起動を逃した場合、復帰時に1回だけ実行する。 -->
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>StandardOutPath</key>
+	<string>/Users/mktoho/work/ai/loop-engineering/loops/logs/launchd-fix.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/mktoho/work/ai/loop-engineering/loops/logs/launchd-fix.log</string>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/mktoho/work/ai/loop-engineering/loops</string>
+
+	<!-- launchd は最小限の環境しか渡さない。PATH と認証まわりは
+	     run-scheduled.sh 側で整えるが、HOME と USER はここで確実に渡す。 -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>/Users/mktoho</string>
+		<key>USER</key>
+		<string>mktoho</string>
+		<key>LANG</key>
+		<string>ja_JP.UTF-8</string>
+	</dict>
+
+	<!-- 修正ループは1回あたり最大15分程度。それを超えたら異常とみなす。
+	     claude 側にも CLAUDE_TIMEOUT=1800 があるので、その外側の保険。 -->
+	<key>ExitTimeOut</key>
+	<integer>2400</integer>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+
+	<!-- 低優先度で動かし、対話作業の邪魔をしない。 -->
+	<key>Nice</key>
+	<integer>5</integer>
+</dict>
+</plist>
