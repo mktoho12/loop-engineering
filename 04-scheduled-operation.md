@@ -251,6 +251,79 @@ is_transient_error() {
 
 同じ問題の再発を防ぐ作りになっている。
 
+## スリープ対策（caffeinate）
+
+夜間の障害を受けて対策した。
+
+### 調べて分かったこと
+
+`pmset -g custom` を見ると、**AC 電源時は既に `sleep 0`（スリープしない）** になっていた。
+バッテリー時だけ `sleep 1`。
+
+昨夜の障害時のログを見ると全部 `Using Batt` だったので、
+**原因は単純に「バッテリー駆動だったこと」**。
+
+つまり電源に繋ぐだけでほぼ解決するが、それだと:
+- 蓋を閉じるとスリープする（clamshell sleep）
+- 電源を挿し忘れたら元の木阿弥
+
+### caffeinate を組み込んだ
+
+`run-scheduled.sh` の実行部を1行変えた:
+
+```bash
+caffeinate -is "./${LOOP_TYPE}-loop.sh" "$@"
+```
+
+| オプション | 意味 |
+|---|---|
+| `-i` | システムのアイドルスリープを防ぐ |
+| `-s` | AC 電源時はシステムスリープを防ぐ（**蓋を閉じても動く**） |
+| ~~`-d`~~ | ディスプレイのスリープ防止。**画面は消えていいので付けない** |
+
+**利点は「必要な間だけ」であること。** `caffeinate` にユーティリティを渡すと、
+その実行中だけ assertion が立ち、終了すれば通常の電源管理に戻る。
+`pmset` でシステム設定を変えると、ループと無関係な時間もスリープしなくなり、
+電力と発熱で損をする。
+
+### 動作を確認した
+
+```
+$ caffeinate -is bash -c "sleep 6" &
+$ pmset -g assertions
+
+pid 99325(caffeinate): PreventUserIdleSystemSleep named: "caffeinate command-line tool"
+	Details: caffeinate asserting on behalf of 'bash' (pid 99323)
+pid 99325(caffeinate): PreventSystemSleep named: "caffeinate command-line tool"
+
+   PreventSystemSleep             1     ← -s が効いている
+   PreventUserIdleSystemSleep     1     ← -i が効いている
+
+# 終了後
+   on behalf of の assertion: 0         ← 通常の電源管理に戻った
+```
+
+`caffeinate` は macOS 標準（`/usr/bin/caffeinate`）なので追加インストールは不要。
+無い環境（Linux 等）ではそのまま実行するようフォールバックを入れてある。
+
+## 将来: クラウドで回す
+
+ローカルマシンでの定期実行はスリープ以外にも制約がある
+（マシンを持ち歩くと止まる、電源を挿し忘れる、OS アップデートで再起動する）。
+
+今の構成は移行しやすくできている:
+
+- ループ本体はシェルスクリプトなので Linux でもほぼそのまま動く
+- 状態は `state/*.json` と **GitHub Issue** にあり、マシンに依存しない
+- launchd の部分だけ cron / systemd timer / GitHub Actions に差し替える
+
+ただしローカルと違う考慮が2つ:
+
+1. **認証** — Keychain が使えないので `ANTHROPIC_API_KEY` になる。
+   課金がサブスクから API 従量に変わる
+2. **コスト** — 1日で約 $50 使った実績があるので、常時稼働の設計は慎重に。
+   早期終了ガードがあるとはいえ、発見ループが毎回何か見つける状態だと回り続ける
+
 ## 運用上の注意
 
 ### コストの見積もり

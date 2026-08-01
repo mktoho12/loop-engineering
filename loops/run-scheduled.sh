@@ -93,7 +93,24 @@ echo $$ > "$LOCK_FILE/pid"
 trap 'rm -rf "$LOCK_FILE"' EXIT
 
 # --- 実行 ---
+#
+# caffeinate でループ実行中だけスリープを抑制する。
+#   -i  システムのアイドルスリープを防ぐ
+#   -s  AC 電源時はシステムスリープを防ぐ（蓋を閉じても動き続ける）
+# ディスプレイは消えていいので -d は付けない。
+#
+# コマンドに続けてユーティリティを渡すと、その実行中だけ assertion が有効になり、
+# 終了すれば通常の電源管理に戻る。pmset でシステム設定を変えるのと違い、
+# ループと無関係な時間までスリープしなくなることがない。
+#
+# 実際、バッテリー駆動の夜間に Maintenance Sleep が繰り返され、
+# 起動直後のループが消えたり、856秒の処理に実時間で1時間半かかったりした。
 cd "$LOOP_DIR"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === $LOOP_TYPE ループを開始 ==="
-"./${LOOP_TYPE}-loop.sh" "$@"
+if command -v caffeinate >/dev/null 2>&1; then
+	caffeinate -is "./${LOOP_TYPE}-loop.sh" "$@"
+else
+	# macOS 以外や caffeinate が無い環境ではそのまま実行する
+	"./${LOOP_TYPE}-loop.sh" "$@"
+fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === $LOOP_TYPE ループを終了 ==="
