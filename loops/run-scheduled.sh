@@ -60,9 +60,22 @@ fi
 # 発見ループと修正ループは同時に走ってよいので、ロックは種類ごとに分ける。
 LOOP_TYPE="${1:-}"
 case "$LOOP_TYPE" in
-	discover|fix) shift ;;
-	*) echo "使い方: $0 {discover|fix} [ループへの引数...]" >&2; exit 1 ;;
+	discover|fix|watch) shift ;;
+	*) echo "使い方: $0 {discover|fix|watch} [ループへの引数...]" >&2; exit 1 ;;
 esac
+
+# --- 監視ループはここで完結する ---
+#
+# watch は claude を起動せず、ログを読んで gh を叩くだけ。
+# そのため以降の Claude 認証確認・PID ロック・caffeinate はいずれも不要。
+#
+# ロックを取らないのは、修正ループの実行中にこそ走ってほしいため
+# （ハングの検出は、走っている最中でなければできない）。
+# 読み取りしかしないので、同時に走っても競合しない。
+if [ "$LOOP_TYPE" = "watch" ]; then
+	cd "$LOOP_DIR"
+	exec ./watch-loop.sh "$@"
+fi
 
 # --- 認証の確認 ---
 # 認証情報は Keychain (login.keychain) にある。ここが読めないと claude は

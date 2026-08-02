@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>dev.mktoho.loop-engineering.watch</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/mktoho/work/ai/loop-engineering/loops/run-scheduled.sh</string>
+		<string>watch</string>
+		<string>--issue</string>
+		<string>--quiet</string>
+	</array>
+
+	<!-- 毎時 15 分・45 分。修正ループ（0 分・30 分）の 15 分後に見に行く。
+	     ハングは10分で検出するので、この間隔なら実行時間の上限（45分）に
+	     達する前に気づける。
+	     LLM を使わないためトークン消費はゼロ。頻度を上げてもコストは増えない。 -->
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Minute</key>
+			<integer>15</integer>
+		</dict>
+		<dict>
+			<key>Minute</key>
+			<integer>45</integer>
+		</dict>
+	</array>
+
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>StandardOutPath</key>
+	<string>/Users/mktoho/work/ai/loop-engineering/loops/logs/launchd-watch.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/mktoho/work/ai/loop-engineering/loops/logs/launchd-watch.log</string>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/mktoho/work/ai/loop-engineering/loops</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>/Users/mktoho</string>
+		<key>USER</key>
+		<string>mktoho</string>
+		<key>LANG</key>
+		<string>ja_JP.UTF-8</string>
+	</dict>
+
+	<!-- jq と gh を叩くだけなので数秒で終わる。長引いたら異常。 -->
+	<key>ExitTimeOut</key>
+	<integer>120</integer>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+
+	<key>Nice</key>
+	<integer>5</integer>
+</dict>
+</plist>
