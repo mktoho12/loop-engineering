@@ -228,8 +228,28 @@ COUNT="$NEW_COUNT"
 WATCH_LABEL="loop-health"
 TITLE_KEY="[loops:health]"
 
-EXISTING="$(gh issue list -R "$REPO" --state open --limit 50 \
-	--json number,title --jq "[.[] | select(.title | startswith(\"$TITLE_KEY\"))] | .[0].number" 2>/dev/null || echo "null")"
+# ラベルは検索より先に用意する。存在しないラベルで `--label` 検索をかけると
+# `gh` がエラーになり、下の取得失敗の分岐に落ちてしまう。
+gh label create "$WATCH_LABEL" -R "$REPO" --color "fbca04" \
+	--description "ループ自身の健全性に関する報告" >/dev/null 2>&1 || true
+
+# 既存の Issue を探す。
+#
+# `|| echo "null"` で握りつぶしてはいけない。`gh` が失敗したとき
+# （レート制限・ネットワークの瞬断）に「既存が無い」と解釈され、
+# 新しい Issue を作ってしまう。実際にこれで #78 と #79 が生まれた。
+# 取得の失敗と「見つからなかった」は別物として扱う。
+#
+# `--limit` にも注意。オープン Issue がこの数を超えると、
+# 対象の Issue が一覧に入らず同じことが起きる。
+# ラベルで絞れば健全性報告だけが対象になるので上限に当たらない。
+if ! EXISTING_RAW="$(gh issue list -R "$REPO" --state open --limit 100 \
+	--label "$WATCH_LABEL" --json number,title 2>/dev/null)"; then
+	log "既存 Issue の取得に失敗しました。重複を避けるため今回は報告を見送ります" >&2
+	exit 1
+fi
+
+EXISTING="$(echo "$EXISTING_RAW" | jq -r "[.[] | select(.title | startswith(\"$TITLE_KEY\"))] | .[0].number // \"null\"")"
 
 BODY_FILE="$(mktemp)"
 {
@@ -255,9 +275,6 @@ BODY_FILE="$(mktemp)"
 	echo
 	echo "検出日時: $(date '+%Y-%m-%d %H:%M:%S')"
 } > "$BODY_FILE"
-
-gh label create "$WATCH_LABEL" -R "$REPO" --color "fbca04" \
-	--description "ループ自身の健全性に関する報告" >/dev/null 2>&1 || true
 
 POSTED=0
 if [ "$EXISTING" != "null" ] && [ -n "$EXISTING" ]; then
