@@ -31,8 +31,17 @@ done
 
 # 検出した問題を溜める。1行1件。
 FINDINGS=""
+# 報告済み判定に使うキー。FINDINGS と同じ順で 1行1件。
+FINDING_KEYS=""
+
+# 問題を1件記録する。
+#
+# 第1引数は報告済みかを判定するためのキー、第2引数が本文。
+# キーは「同じ事象なら同じ文字列」になるようにする（金額や経過分数のように
+# 実行ごとに変わる値を混ぜない）。同じ事象を毎回報告し直さないための識別子。
 add_finding() {
-	FINDINGS="${FINDINGS}$1"$'\n'
+	FINDING_KEYS="${FINDING_KEYS}$1"$'\n'
+	FINDINGS="${FINDINGS}$2"$'\n'
 }
 
 say() {
@@ -62,10 +71,12 @@ for raw in $(ls -t "$LOG_DIR"/fix-*.jsonl 2>/dev/null | head -6); do
 
 	if [ -z "$subtype" ]; then
 		RECENT_FAILURES="${RECENT_FAILURES}${name}(result なし) "
-		add_finding "**$name** — result イベントが無い。ハングしたまま強制終了した可能性が高い（結末を書き出せていない）"
+		add_finding "no-result:$name" \
+			"**$name** — result イベントが無い。ハングしたまま強制終了した可能性が高い（結末を書き出せていない）"
 	elif [ "$subtype" != "success" ]; then
 		RECENT_FAILURES="${RECENT_FAILURES}${name}($reason) "
-		add_finding "**$name** — 異常終了 subtype=$subtype reason=$reason"
+		add_finding "abnormal-exit:$name" \
+			"**$name** — 異常終了 subtype=$subtype reason=$reason"
 	fi
 done
 
@@ -93,7 +104,10 @@ if [ "${#RECENT_ISSUES[@]:-0}" -ge 2 ]; then
 	DUPES="$(printf '%s\n' "${RECENT_ISSUES[@]}" | sort | uniq -d)"
 	for num in $DUPES; do
 		count="$(printf '%s\n' "${RECENT_ISSUES[@]}" | grep -c "^${num}$")"
-		add_finding "**Issue #$num が $count 回連続で失敗している** — ループでは解けない問題の可能性。Issue を分割するか \`$SKIP_LABEL\` を付けて人間が対応することを検討してください"
+		# キーに回数を入れない。3回目・4回目と増えるたびに別の事象として
+		# 報告し直すことになり、同じ Issue の話が何度も並ぶ
+		add_finding "repeated-failure:$num" \
+			"**Issue #$num が $count 回連続で失敗している** — ループでは解けない問題の可能性。Issue を分割するか \`$SKIP_LABEL\` を付けて人間が対応することを検討してください"
 	done
 fi
 
@@ -109,7 +123,11 @@ if [ -d "$STATE_DIR/fix.lock" ]; then
 		last_mod="$(stat -f %m "$LATEST_LOG" 2>/dev/null || echo 0)"
 		idle_min=$(( ($(date +%s) - last_mod) / 60 ))
 		if [ "$idle_min" -ge "$HANG_THRESHOLD_MIN" ]; then
-			add_finding "**実行中のループが ${idle_min} 分間ログを更新していない** — ハングの可能性: \`$(basename "$LATEST_LOG")\`"
+			# キーに経過分数を入れない。1分ごとに別の事象になり、
+			# ハングしている間ずっと報告し続けることになる。
+			# 対象のログ1本につき1回だけ報告する
+			add_finding "hang:$(basename "$LATEST_LOG" .log)" \
+				"**実行中のループが ${idle_min} 分間ログを更新していない** — ハングの可能性: \`$(basename "$LATEST_LOG")\`"
 		else
 			say "実行中のループは正常（${idle_min} 分前に更新）"
 		fi
@@ -123,7 +141,8 @@ fi
 # PID 指定（ps -p）は自己参照しないので安全。
 for lf in $(ls -t "$LOG_DIR"/fix-*.log 2>/dev/null | head -6); do
 	if grep -q "until ! pgrep -f\|while pgrep -f" "$lf" 2>/dev/null; then
-		add_finding "**$(basename "$lf" .log)** で \`pgrep -f\` による完了待ちが使われている — 自分自身にマッチして無限待ちになる。\`prompts/fix.md\` の禁止事項を確認してください"
+		add_finding "pgrep-wait:$(basename "$lf" .log)" \
+			"**$(basename "$lf" .log)** で \`pgrep -f\` による完了待ちが使われている — 自分自身にマッチして無限待ちになる。\`prompts/fix.md\` の禁止事項を確認してください"
 	fi
 done
 
@@ -141,7 +160,9 @@ for raw in $(ls -t "$LOG_DIR"/fix-*.jsonl 2>/dev/null | head -6); do
 	# bc が無い環境もあるので awk で比較する
 	over="$(awk -v c="$cost" -v t="$COST_THRESHOLD" 'BEGIN{print (c>t)?1:0}')"
 	if [ "$over" = "1" ]; then
-		add_finding "**$name** — 成果ゼロで \$$(awk -v c="$cost" 'BEGIN{printf "%.2f", c}') を消費"
+		# キーに金額を入れない。同じ実行の話なので name だけで一意になる
+		add_finding "costly-failure:$name" \
+			"**$name** — 成果ゼロで \$$(awk -v c="$cost" 'BEGIN{printf "%.2f", c}') を消費"
 	fi
 done
 
@@ -160,6 +181,46 @@ echo "$FINDINGS" | grep . | sed 's/^/  - /'
 if [ "$CREATE_ISSUE" -eq 0 ]; then
 	exit 0
 fi
+
+# --- 報告済みを除く ---
+#
+# 検出は毎回ゼロから行うので、同じ事象が何度でも見つかる。ログが
+# 入れ替わるまで（検査の窓は直近6件）同じ失敗が残り続けるため、
+# 素朴に報告すると30分ごとに同じ内容を投稿することになる。
+# 実際、これで Issue #57 に同じ2件が81回投稿された。
+#
+# 報告済みのキーを記録しておき、新しいものだけを報告する。
+REPORTED_FILE="$STATE_DIR/watch-reported.txt"
+mkdir -p "$STATE_DIR"
+touch "$REPORTED_FILE"
+
+NEW_FINDINGS=""
+NEW_KEYS=""
+# キーと本文は同じ順で溜めているので、行番号で対応付ける
+line_no=0
+while IFS= read -r key; do
+	[ -z "$key" ] && continue
+	line_no=$((line_no + 1))
+	body="$(echo "$FINDINGS" | grep . | sed -n "${line_no}p")"
+	# 完全一致で照合する（部分一致だと issue6 が issue61 に当たる）
+	if grep -qxF "$key" "$REPORTED_FILE" 2>/dev/null; then
+		continue
+	fi
+	NEW_KEYS="${NEW_KEYS}${key}"$'\n'
+	NEW_FINDINGS="${NEW_FINDINGS}${body}"$'\n'
+done < <(echo "$FINDING_KEYS" | grep .)
+
+if [ -z "$NEW_FINDINGS" ]; then
+	log "新しい異常はありません（$COUNT 件はすべて報告済み）"
+	exit 0
+fi
+
+NEW_COUNT="$(echo "$NEW_FINDINGS" | grep -c . || true)"
+log "未報告: $NEW_COUNT 件"
+
+# 報告する内容だけを Issue 本文に載せる
+FINDINGS="$NEW_FINDINGS"
+COUNT="$NEW_COUNT"
 
 # --- Issue を作る ---
 #
@@ -198,15 +259,40 @@ BODY_FILE="$(mktemp)"
 gh label create "$WATCH_LABEL" -R "$REPO" --color "fbca04" \
 	--description "ループ自身の健全性に関する報告" >/dev/null 2>&1 || true
 
+POSTED=0
 if [ "$EXISTING" != "null" ] && [ -n "$EXISTING" ]; then
-	gh issue comment "$EXISTING" -R "$REPO" --body-file "$BODY_FILE" >/dev/null
-	log "既存 Issue #$EXISTING にコメントしました"
+	if gh issue comment "$EXISTING" -R "$REPO" --body-file "$BODY_FILE" >/dev/null; then
+		log "既存 Issue #$EXISTING にコメントしました（$COUNT 件）"
+		POSTED=1
+	else
+		log "Issue #$EXISTING へのコメントに失敗しました" >&2
+	fi
 else
-	URL="$(gh issue create -R "$REPO" \
+	if URL="$(gh issue create -R "$REPO" \
 		--title "$TITLE_KEY 自動ループの実行に異常があります" \
 		--label "$WATCH_LABEL,$SKIP_LABEL" \
-		--body-file "$BODY_FILE")"
-	log "Issue を作成しました: $URL"
+		--body-file "$BODY_FILE")"; then
+		log "Issue を作成しました: $URL"
+		POSTED=1
+	else
+		log "Issue の作成に失敗しました" >&2
+	fi
 fi
 
 rm -f "$BODY_FILE"
+
+# 報告済みとして記録するのは、投稿が成功したときだけ。
+#
+# 先に記録してしまうと、`gh` が失敗したときにその異常は二度と報告されない。
+# 「報告した」ことの記録なので、報告できていないなら書かない。
+if [ "$POSTED" -eq 1 ]; then
+	echo "$NEW_KEYS" | grep . >> "$REPORTED_FILE"
+
+	# 記録が無限に伸びないよう、直近 500 件に切り詰める。
+	# 検査の窓は直近6件のログなので、これだけあれば取りこぼさない。
+	if [ "$(grep -c . "$REPORTED_FILE" 2>/dev/null || echo 0)" -gt 500 ]; then
+		tail -500 "$REPORTED_FILE" > "$REPORTED_FILE.tmp" && mv "$REPORTED_FILE.tmp" "$REPORTED_FILE"
+	fi
+else
+	exit 1
+fi
