@@ -1,0 +1,489 @@
+<title>想定利用者について — World Issue Tracker</title>
+
+<style>
+	:root {
+		color-scheme: light dark;
+
+		/* 土や紙に寄せた温かいニュートラル。困りごとを扱う題材なので、
+		   青灰色の「SaaS っぽさ」を避けている */
+		--ink: #241f1a;
+		--ink-soft: #5c534a;
+		--ink-faint: #8a7f73;
+		--ground: #faf7f2;
+		--surface: #ffffff;
+		--line: #e6ded2;
+
+		/* 主役は一色だけ。土を掘り起こした色 */
+		--accent: #b45309;
+		--accent-soft: #fdf0e2;
+		--accent-line: #f0d4b3;
+
+		--radius: 10px;
+		--measure: 34rem;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--ink: #f0e9e0;
+			--ink-soft: #b8ada0;
+			--ink-faint: #8a7f73;
+			--ground: #191512;
+			--surface: #211c18;
+			--line: #372f28;
+			--accent: #f0a15c;
+			--accent-soft: #2b2019;
+			--accent-line: #4a3728;
+		}
+	}
+
+	:root[data-theme="dark"] {
+		--ink: #f0e9e0;
+		--ink-soft: #b8ada0;
+		--ink-faint: #8a7f73;
+		--ground: #191512;
+		--surface: #211c18;
+		--line: #372f28;
+		--accent: #f0a15c;
+		--accent-soft: #2b2019;
+		--accent-line: #4a3728;
+	}
+
+	:root[data-theme="light"] {
+		--ink: #241f1a;
+		--ink-soft: #5c534a;
+		--ink-faint: #8a7f73;
+		--ground: #faf7f2;
+		--surface: #ffffff;
+		--line: #e6ded2;
+		--accent: #b45309;
+		--accent-soft: #fdf0e2;
+		--accent-line: #f0d4b3;
+	}
+
+	body {
+		margin: 0;
+		background: var(--ground);
+		color: var(--ink);
+		font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+			system-ui, sans-serif;
+		line-height: 1.85;
+		font-size: 16px;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	.wrap {
+		max-width: var(--measure);
+		margin: 0 auto;
+		padding: 3.5rem 1.5rem 6rem;
+	}
+
+	/* --- 冒頭 --- */
+
+	.eyebrow {
+		font-size: 0.75rem;
+		letter-spacing: 0.14em;
+		color: var(--accent);
+		font-weight: 700;
+		margin: 0 0 0.75rem;
+	}
+
+	h1 {
+		font-size: 1.75rem;
+		line-height: 1.45;
+		letter-spacing: 0.01em;
+		margin: 0 0 1.5rem;
+		text-wrap: balance;
+		font-weight: 700;
+	}
+
+	.lede {
+		font-size: 1.0625rem;
+		color: var(--ink-soft);
+		margin: 0 0 2.5rem;
+	}
+
+	h2 {
+		font-size: 1.1875rem;
+		margin: 3.5rem 0 1rem;
+		padding-top: 1.75rem;
+		border-top: 1px solid var(--line);
+		font-weight: 700;
+		text-wrap: balance;
+	}
+
+	h3 {
+		font-size: 1rem;
+		margin: 2rem 0 0.5rem;
+		font-weight: 700;
+		text-wrap: balance;
+	}
+
+	p {
+		margin: 0 0 1.1rem;
+	}
+
+	strong {
+		font-weight: 700;
+		/* 強調は色ではなく、うっすらした下地で。色を足すと accent と競合する */
+		background: linear-gradient(transparent 62%, var(--accent-soft) 62%);
+	}
+
+	/* --- 質問カード（この文書の主役） --- */
+
+	.q {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		padding: 1.5rem 1.5rem 1.25rem;
+		margin: 1.25rem 0;
+	}
+
+	.q.primary {
+		border-color: var(--accent-line);
+		box-shadow: 0 1px 3px rgb(180 83 9 / 0.06);
+	}
+
+	.q-head {
+		display: flex;
+		align-items: baseline;
+		gap: 0.6rem;
+		margin-bottom: 0.35rem;
+		flex-wrap: wrap;
+	}
+
+	.q-num {
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		color: var(--accent);
+		white-space: nowrap;
+	}
+
+	.q-tag {
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		background: var(--accent);
+		color: var(--ground);
+		padding: 0.1rem 0.5rem;
+		border-radius: 100px;
+		white-space: nowrap;
+	}
+
+	.q-tag.muted {
+		background: transparent;
+		color: var(--ink-faint);
+		border: 1px solid var(--line);
+	}
+
+	.q-title {
+		font-size: 1.0625rem;
+		font-weight: 700;
+		margin: 0 0 0.75rem;
+		line-height: 1.55;
+		text-wrap: balance;
+	}
+
+	.q p:last-child {
+		margin-bottom: 0;
+	}
+
+	/* 選択肢 */
+	.choices {
+		list-style: none;
+		padding: 0;
+		margin: 0 0 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.choices li {
+		border: 1px solid var(--line);
+		border-radius: 8px;
+		padding: 0.7rem 0.9rem;
+		line-height: 1.6;
+	}
+
+	.choices .key {
+		font-weight: 700;
+		color: var(--accent);
+		margin-right: 0.4rem;
+	}
+
+	.choices .note {
+		display: block;
+		font-size: 0.875rem;
+		color: var(--ink-soft);
+		margin-top: 0.15rem;
+	}
+
+	.q-follow {
+		font-size: 0.9375rem;
+		color: var(--ink-soft);
+		border-left: 2px solid var(--accent-line);
+		padding-left: 0.85rem;
+		margin: 0;
+	}
+
+	/* --- 理由の節 --- */
+
+	.why {
+		border-left: 2px solid var(--line);
+		padding-left: 1.15rem;
+		margin: 1.25rem 0 2rem;
+	}
+
+	.why h3 {
+		margin-top: 1.5rem;
+		font-size: 0.9375rem;
+	}
+
+	.why h3:first-child {
+		margin-top: 0;
+	}
+
+	.why p {
+		font-size: 0.9375rem;
+		color: var(--ink-soft);
+		margin-bottom: 0.75rem;
+	}
+
+	.why strong {
+		color: var(--ink);
+	}
+
+	/* --- 対比の表 --- */
+
+	.compare {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0.5rem 0 1rem;
+		font-size: 0.9375rem;
+	}
+
+	.compare th,
+	.compare td {
+		text-align: left;
+		padding: 0.6rem 0.75rem;
+		border-bottom: 1px solid var(--line);
+		vertical-align: top;
+	}
+
+	.compare th {
+		font-size: 0.75rem;
+		letter-spacing: 0.06em;
+		color: var(--ink-faint);
+		font-weight: 700;
+		border-bottom-color: var(--ink-faint);
+	}
+
+	.compare td:first-child {
+		color: var(--ink);
+		font-weight: 700;
+		white-space: nowrap;
+	}
+
+	.compare td:last-child {
+		color: var(--ink-soft);
+	}
+
+	/* --- 末尾の逃げ道 --- */
+
+	.escape {
+		background: var(--accent-soft);
+		border: 1px solid var(--accent-line);
+		border-radius: var(--radius);
+		padding: 1.25rem 1.5rem;
+		margin-top: 1.25rem;
+	}
+
+	.escape p:last-child {
+		margin-bottom: 0;
+	}
+
+	.escape .say {
+		display: inline-block;
+		background: var(--surface);
+		border: 1px solid var(--accent-line);
+		border-radius: 6px;
+		padding: 0.15rem 0.6rem;
+		font-weight: 700;
+		color: var(--accent);
+	}
+
+	.foot {
+		margin-top: 4rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--line);
+		font-size: 0.875rem;
+		color: var(--ink-faint);
+	}
+
+	@media (max-width: 30rem) {
+		.wrap {
+			padding: 2.5rem 1.15rem 4rem;
+		}
+		h1 {
+			font-size: 1.5rem;
+		}
+		.q {
+			padding: 1.25rem 1.1rem 1rem;
+		}
+	}
+</style>
+
+<div class="wrap">
+	<p class="eyebrow">World Issue Tracker</p>
+	<h1>サービスの見た目を決めるために、<br />想定利用者を教えてください</h1>
+
+	<p class="lede">
+		お答えいただきたいのは<strong>4つ</strong>、本命は<strong>質問1だけ</strong>です。
+		お忙しければ質問1にひとことだけでも助かります。
+	</p>
+
+	<h2>なぜ聞いているか</h2>
+
+	<p>
+		現状の画面は「白い背景に文字が並ぶだけで殺風景」だという指摘を受けました。見た目を整えるにあたって、まず<strong>配色や文字の大きさといった基本ルール</strong>を決める必要があります。
+	</p>
+
+	<p>
+		README と CLAUDE.md には、目的（「地球のバグを、みんなで可視化して、みんなで直す」）と態度（「blame ではなく fix」）が明確に書かれています。ただ<strong>想定利用者についての記述が無く</strong>、ここが決まらないとデザインの判断に基準が持てません。
+	</p>
+
+	<h2>これは抽象論ではありません</h2>
+
+	<p>実際に、今の作りに影響が出ています。3つ挙げます。</p>
+
+	<div class="why">
+		<h3>1. 起票フォームの想定が定まっていない</h3>
+		<p>
+			Issue の投稿には<strong>緯度・経度が必須</strong>です。「現在地から入力」ボタンがあるので、その場にいればスマホで完結します。
+		</p>
+		<p>
+			ただし現地にいない場合の案内は「地図サービスで目的の地点を右クリックすると座標を調べられます」となっていて、これは<strong>PCで腰を据えて操作する人</strong>を前提にした説明です。
+		</p>
+		<p>
+			つまり今のフォームは両方の使い方に少しずつ対応していて、<strong>どちらに最適化するかが決まっていません。</strong>
+		</p>
+
+		<h3>2. トップページで最初に何を見せるかが変わる</h3>
+		<table class="compare">
+			<thead>
+				<tr>
+					<th>主な利用者</th>
+					<th>トップページの主役</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>投稿する人</td>
+					<td>「書く」ための入口</td>
+				</tr>
+				<tr>
+					<td>手伝う人</td>
+					<td>今どんな困りごとがあるかの一覧・地図</td>
+				</tr>
+			</tbody>
+		</table>
+		<p>
+			どちらも大事ですが、<strong>両方を同じ強さで並べると結局どちらも目立ちません。</strong>
+		</p>
+
+		<h3>3. 「楽しい見た目」の中身が変わる</h3>
+		<p>
+			ワクワクする見た目にしたいと考えていますが、これも相手によって答えが変わります。困りごとを投稿する人にとっては<strong>ポップすぎると「真剣に扱ってもらえなさそう」</strong>に見えることがあります。自治体の担当者も見るなら落ち着きが要りますし、参加のハードルを下げたいならかたすぎるのも逆効果です。
+		</p>
+	</div>
+
+	<h2>質問</h2>
+
+	<div class="q primary">
+		<div class="q-head">
+			<span class="q-num">質問 1</span>
+			<span class="q-tag">最も知りたい</span>
+		</div>
+		<p class="q-title">主な利用者は、どちらですか？</p>
+		<ul class="choices">
+			<li>
+				<span class="key">A.</span>困りごとを投稿する人
+				<span class="note">「街灯が切れている」「空き地の草が伸びている」と書く側</span>
+			</li>
+			<li>
+				<span class="key">B.</span>手伝う人・眺める人
+				<span class="note">何が起きているかを見て、動く側</span>
+			</li>
+			<li>
+				<span class="key">C.</span>その他
+				<span class="note">具体的に教えてください</span>
+			</li>
+		</ul>
+		<p class="q-follow">
+			「両方」でも構いません。その場合は<strong>どちらを先に増やしたいか</strong>だけ教えてください。最初に見せるものを決める必要があるためです。
+		</p>
+	</div>
+
+	<div class="q">
+		<div class="q-head">
+			<span class="q-num">質問 2</span>
+		</div>
+		<p class="q-title">どんな状況で使いますか？</p>
+		<ul class="choices">
+			<li><span class="key">A.</span>外出先でスマホから、その場で</li>
+			<li><span class="key">B.</span>自宅や職場で、PCでじっくり</li>
+			<li><span class="key">C.</span>両方</li>
+		</ul>
+		<p class="q-follow">
+			MVP は「1都市での実証」とされているので、<strong>その都市の住民が中心</strong>という理解で合っていますか。
+		</p>
+	</div>
+
+	<div class="q">
+		<div class="q-head">
+			<span class="q-num">質問 3</span>
+		</div>
+		<p class="q-title">自治体や行政の担当者も見ますか？</p>
+		<p>
+			「陳情テンプレート」が主要機能に挙がっているので、行政側も想定されていると読み取れます。もしそうなら<strong>見た目の落ち着きが必要</strong>になります（派手すぎると信用されにくいため）。
+		</p>
+	</div>
+
+	<div class="q">
+		<div class="q-head">
+			<span class="q-num">質問 4</span>
+			<span class="q-tag muted">任意</span>
+		</div>
+		<p class="q-title">参考にしたいサービスはありますか？</p>
+		<p>
+			「こういう雰囲気にしたい」と思うサイトやアプリがあれば、URL でも名前でも構いません。<strong>言葉で伝えるより、実物を指していただく方が正確に伝わります。</strong>
+		</p>
+		<p>逆に「こうはしたくない」の例も、同じくらい役に立ちます。</p>
+	</div>
+
+	<h2>いただいた回答をどう使うか</h2>
+
+	<p>
+		回答をもとに、<strong>配色・書体・余白の取り方をまとめた見本ページ</strong>を作ってお見せします。実際にブラウザで見られる形にするので、「この色は違う」「もっと明るく」と反応いただけます。
+	</p>
+
+	<p>
+		見本が固まってから実装に入るので、<strong>この時点での修正にはコストがかかりません。</strong>
+	</p>
+
+	<div class="escape">
+		<p>
+			<strong>お答えいただかなくても進められます。</strong>
+		</p>
+		<p>
+			「まだ決めていない」「決め打ちしたくない」という段階であれば、こちらで仮に置いて見本を作ります。実物を見てから決める方が判断しやすい場合も多いためです。
+		</p>
+		<p>
+			その場合は <span class="say">仮でいいので進めて</span> とだけお伝えください。
+		</p>
+	</div>
+
+	<p class="foot">
+		この質問は、見た目の実装に入る前の確認です。回答が無くても作業は止まりません。
+	</p>
+</div>

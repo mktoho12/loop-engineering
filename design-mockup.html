@@ -1,0 +1,514 @@
+<title>デザイン見本 — World Issue Tracker</title>
+
+<style>
+	:root {
+		color-scheme: light dark;
+
+		/* ニュートラルは緑に寄せた温かいグレー。純グレーだと「未設定」に見える */
+		--ink: #1c2420;
+		--ink-soft: #55605a;
+		--ink-faint: #8b958f;
+		--ground: #f7f9f7;
+		--surface: #ffffff;
+		--line: #e2e8e4;
+
+		/* 主役は「直す」の色。草木と、動き出す合図 */
+		--accent: #1a7f5a;
+		--accent-hover: #146547;
+		--accent-soft: #e8f5ef;
+		--accent-line: #b8ddcb;
+
+		/* 状態の色（accent とは別系統。意味を持つ） */
+		--open: #b45309;
+		--open-soft: #fdf2e4;
+		--progress: #1d4ed8;
+		--progress-soft: #e8effd;
+		--resolved: #1a7f5a;
+		--resolved-soft: #e8f5ef;
+
+		--radius: 14px;
+		--radius-sm: 8px;
+		--shadow: 0 1px 2px rgb(28 36 32 / 0.04), 0 4px 12px rgb(28 36 32 / 0.06);
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--ink: #e8efea;
+			--ink-soft: #a4b0a9;
+			--ink-faint: #6f7b75;
+			--ground: #121614;
+			--surface: #1a201d;
+			--line: #2b332f;
+			--accent: #4ec89a;
+			--accent-hover: #6fd6ae;
+			--accent-soft: #16261f;
+			--accent-line: #2c4a3c;
+			--open: #e8a35c;
+			--open-soft: #2a1f13;
+			--progress: #7aa5f5;
+			--progress-soft: #16203a;
+			--resolved: #4ec89a;
+			--resolved-soft: #16261f;
+			--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
+		}
+	}
+
+	:root[data-theme="dark"] {
+		--ink: #e8efea; --ink-soft: #a4b0a9; --ink-faint: #6f7b75;
+		--ground: #121614; --surface: #1a201d; --line: #2b332f;
+		--accent: #4ec89a; --accent-hover: #6fd6ae; --accent-soft: #16261f; --accent-line: #2c4a3c;
+		--open: #e8a35c; --open-soft: #2a1f13;
+		--progress: #7aa5f5; --progress-soft: #16203a;
+		--resolved: #4ec89a; --resolved-soft: #16261f;
+		--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
+	}
+
+	:root[data-theme="light"] {
+		--ink: #1c2420; --ink-soft: #55605a; --ink-faint: #8b958f;
+		--ground: #f7f9f7; --surface: #ffffff; --line: #e2e8e4;
+		--accent: #1a7f5a; --accent-hover: #146547; --accent-soft: #e8f5ef; --accent-line: #b8ddcb;
+		--open: #b45309; --open-soft: #fdf2e4;
+		--progress: #1d4ed8; --progress-soft: #e8effd;
+		--resolved: #1a7f5a; --resolved-soft: #e8f5ef;
+		--shadow: 0 1px 2px rgb(28 36 32 / 0.04), 0 4px 12px rgb(28 36 32 / 0.06);
+	}
+
+	* { box-sizing: border-box; }
+
+	body {
+		margin: 0;
+		background: var(--ground);
+		color: var(--ink);
+		font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+			system-ui, sans-serif;
+		line-height: 1.75;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	.wrap { max-width: 60rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+	/* ===== 解説の見出し ===== */
+	.doc-eyebrow {
+		font-size: 0.75rem; letter-spacing: 0.14em; color: var(--accent);
+		font-weight: 700; margin: 0 0 0.5rem;
+	}
+	h1 { font-size: 1.75rem; line-height: 1.4; margin: 0 0 1rem; text-wrap: balance; }
+	.doc-lede { color: var(--ink-soft); margin: 0 0 1rem; max-width: 40rem; }
+
+	h2 {
+		font-size: 1.25rem; margin: 4rem 0 0.5rem; padding-top: 2rem;
+		border-top: 1px solid var(--line); text-wrap: balance;
+	}
+	.doc-note {
+		color: var(--ink-soft); font-size: 0.9375rem; margin: 0 0 1.5rem; max-width: 42rem;
+	}
+	.doc-note strong { color: var(--ink); }
+
+	/* ===== パレット ===== */
+	.swatches {
+		display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+		gap: 0.75rem; margin: 1.5rem 0;
+	}
+	.sw {
+		border: 1px solid var(--line); border-radius: var(--radius-sm);
+		overflow: hidden; background: var(--surface);
+	}
+	.sw-chip { height: 3.5rem; }
+	.sw-body { padding: 0.5rem 0.7rem 0.65rem; }
+	.sw-name { font-size: 0.8125rem; font-weight: 700; }
+	.sw-hex {
+		font-size: 0.75rem; color: var(--ink-faint);
+		font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums;
+	}
+	.sw-use { font-size: 0.75rem; color: var(--ink-soft); line-height: 1.5; margin-top: 0.2rem; }
+
+	/* ===== 文字の段階 ===== */
+	.scale { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 1.25rem 1.5rem; }
+	.scale-row { display: flex; align-items: baseline; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+	.scale-row:last-child { border-bottom: 0; }
+	.scale-meta {
+		font-size: 0.75rem; color: var(--ink-faint); font-family: ui-monospace, monospace;
+		white-space: nowrap; width: 5.5rem; flex-shrink: 0; font-variant-numeric: tabular-nums;
+	}
+
+	/* ===== 画面見本の枠 ===== */
+	.screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 1.5rem; align-items: start; }
+	.screen-label {
+		font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+		color: var(--ink-faint); margin: 0 0 0.5rem;
+	}
+	.phone {
+		border: 1px solid var(--line); border-radius: var(--radius);
+		background: var(--surface); overflow: hidden; box-shadow: var(--shadow);
+	}
+
+	/* ===== アプリのヘッダー ===== */
+	.app-bar {
+		display: flex; align-items: center; justify-content: space-between;
+		padding: 0.85rem 1rem; border-bottom: 1px solid var(--line);
+	}
+	.logo { display: flex; align-items: center; gap: 0.45rem; font-weight: 700; font-size: 0.9375rem; }
+	.logo-mark {
+		width: 1.5rem; height: 1.5rem; border-radius: 6px; background: var(--accent);
+		display: grid; place-items: center; color: #fff; font-size: 0.8rem; flex-shrink: 0;
+	}
+	.app-bar-action { font-size: 0.8125rem; color: var(--ink-soft); }
+
+	/* ===== 主役のボタン ===== */
+	.cta {
+		display: block; width: 100%; text-align: center;
+		background: var(--accent); color: #fff; border: 0;
+		border-radius: 100px; padding: 0.85rem 1.25rem;
+		font-size: 1rem; font-weight: 700; font-family: inherit;
+		cursor: pointer; transition: background 0.15s;
+	}
+	.cta:hover { background: var(--accent-hover); }
+	.cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+	.cta-sub { font-size: 0.8125rem; color: var(--ink-soft); text-align: center; margin: 0.5rem 0 0; }
+
+	/* ===== Issue カード（この設計の中心） ===== */
+	.feed { padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+
+	.card {
+		border: 1px solid var(--line); border-radius: var(--radius);
+		background: var(--surface); overflow: hidden;
+		transition: box-shadow 0.15s, transform 0.15s;
+		cursor: pointer;
+	}
+	.card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+
+	/* 写真。無いときは地図の代役が入る */
+	.card-photo {
+		height: 8.5rem; position: relative;
+		background:
+			radial-gradient(circle at 25% 30%, #7fb069 0 18%, transparent 18%),
+			radial-gradient(circle at 62% 55%, #6a9d57 0 22%, transparent 22%),
+			radial-gradient(circle at 85% 25%, #8fbc7a 0 14%, transparent 14%),
+			linear-gradient(170deg, #b8cfa8, #8fae7d);
+	}
+	.card-photo.no-photo {
+		background: var(--accent-soft);
+		display: grid; place-items: center;
+	}
+	.no-photo-note { font-size: 0.75rem; color: var(--ink-soft); }
+
+	.card-body { padding: 0.85rem 1rem 1rem; }
+
+	.card-title {
+		font-size: 1.0625rem; font-weight: 700; line-height: 1.5;
+		margin: 0 0 0.35rem; text-wrap: balance;
+	}
+	.card-desc {
+		font-size: 0.875rem; color: var(--ink-soft); margin: 0 0 0.75rem;
+		display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+		overflow: hidden; line-height: 1.7;
+	}
+
+	/* 「何人が動いているか」— change.org の賛同数にあたる部分 */
+	.card-signal {
+		display: flex; align-items: center; gap: 0.5rem;
+		margin: 0 0 0.7rem;
+	}
+	.faces { display: flex; }
+	.face {
+		width: 1.5rem; height: 1.5rem; border-radius: 50%;
+		border: 2px solid var(--surface); margin-left: -0.5rem;
+		display: grid; place-items: center; font-size: 0.65rem; color: #fff; font-weight: 700;
+	}
+	.face:first-child { margin-left: 0; }
+	.face.a { background: #6a9d57; }
+	.face.b { background: #b45309; }
+	.face.c { background: #1d4ed8; }
+	.signal-text { font-size: 0.8125rem; color: var(--ink); font-weight: 700; }
+	.signal-text .n { color: var(--accent); }
+
+	.card-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+	.pill {
+		font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.6rem;
+		border-radius: 100px; white-space: nowrap;
+	}
+	.pill.open { background: var(--open-soft); color: var(--open); }
+	.pill.progress { background: var(--progress-soft); color: var(--progress); }
+	.pill.resolved { background: var(--resolved-soft); color: var(--resolved); }
+	.pill.scope { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-weight: 400; }
+	.card-time { font-size: 0.75rem; color: var(--ink-faint); margin-left: auto; }
+
+	/* ===== 投稿フォーム ===== */
+	.form { padding: 1.15rem 1rem 1.35rem; }
+	.form-step {
+		font-size: 0.75rem; color: var(--accent); font-weight: 700;
+		letter-spacing: 0.08em; margin: 0 0 0.15rem;
+	}
+	.form-q { font-size: 1.0625rem; font-weight: 700; margin: 0 0 0.9rem; text-wrap: balance; }
+
+	.field { margin-bottom: 0.9rem; }
+	.field label { display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.25rem; }
+	.field input, .field textarea {
+		width: 100%; font: inherit; font-size: 0.9375rem;
+		padding: 0.6rem 0.75rem; border: 1px solid var(--line);
+		border-radius: var(--radius-sm); background: var(--ground); color: var(--ink);
+	}
+	.field input:focus, .field textarea:focus {
+		outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface);
+	}
+	.field textarea { resize: vertical; min-height: 4.5rem; }
+
+	/* 写真の追加口。change.org の「画像があること」に対応する部分 */
+	.photo-drop {
+		border: 1.5px dashed var(--accent-line); border-radius: var(--radius-sm);
+		background: var(--accent-soft); padding: 1rem; text-align: center;
+		cursor: pointer;
+	}
+	.photo-drop-icon { font-size: 1.5rem; line-height: 1; }
+	.photo-drop-main { font-size: 0.875rem; font-weight: 700; margin: 0.35rem 0 0.1rem; }
+	.photo-drop-sub { font-size: 0.75rem; color: var(--ink-soft); margin: 0; }
+
+	.locate {
+		display: flex; align-items: center; gap: 0.5rem;
+		background: var(--surface); border: 1px solid var(--line);
+		border-radius: var(--radius-sm); padding: 0.6rem 0.75rem;
+		font-size: 0.875rem; width: 100%; font-family: inherit; color: var(--ink);
+		cursor: pointer;
+	}
+	.locate:hover { border-color: var(--accent-line); }
+	.locate .ok { color: var(--accent); font-weight: 700; margin-left: auto; font-size: 0.8125rem; }
+
+	/* ===== 比較（現状 vs 見本） ===== */
+	.before {
+		border: 1px solid var(--line); border-radius: var(--radius);
+		background: #fff; color: #1a1a1a; padding: 1.25rem;
+		font-family: system-ui, sans-serif; line-height: 1.6;
+	}
+	.before h3 { font-size: 1rem; margin: 0 0 0.25rem; }
+	.before h3 a { color: #0000ee; }
+	.before p { margin: 0 0 0.5rem; color: #444; font-size: 0.9375rem; }
+	.before .m { font-size: 0.85rem; color: #666; margin: 0; }
+
+	.foot { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line); font-size: 0.875rem; color: var(--ink-faint); }
+
+	@media (max-width: 40rem) {
+		.wrap { padding: 2rem 1rem 4rem; }
+		h1 { font-size: 1.4rem; }
+	}
+</style>
+
+<div class="wrap">
+	<p class="doc-eyebrow">デザイン見本</p>
+	<h1>投稿する人のための、写真が主役の画面</h1>
+	<p class="doc-lede">
+		発起人の回答（<strong>投稿する人が主役</strong>／<strong>スマホでその場から</strong>／<strong>まず多くの人に</strong>／<strong>change.org・画像・負担の少なさ</strong>）から組みました。実際に投稿されている Issue をそのまま使っています。
+	</p>
+
+	<h2>1. 何を変えるか</h2>
+	<p class="doc-note">
+		「殺風景」の正体は装飾不足ではなく、<strong>カードに写真と「何人が動いているか」が無いこと</strong>でした。change.org のカードはこの2つで趣旨を一瞬で伝えています。色を足すより、この2つを足す方が効きます。
+	</p>
+
+	<div class="screens">
+		<div>
+			<p class="screen-label">現状</p>
+			<div class="before">
+				<h3><a href="#none">隣の空き地の草が伸びてひどい</a></h3>
+				<p>ウチの隣が空き地になってるのですが、夏になると草が伸び放題で困ってます うちの敷地や道路にもはみ出して空間が狭くなっています</p>
+				<p class="m">自治体 / 受付 / 空き家 / 2026-08-01 12:00 UTC</p>
+			</div>
+		</div>
+
+		<div>
+			<p class="screen-label">見本</p>
+			<article class="card">
+				<div class="card-photo"></div>
+				<div class="card-body">
+					<h3 class="card-title">隣の空き地の草が伸びてひどい</h3>
+					<p class="card-desc">ウチの隣が空き地になってるのですが、夏になると草が伸び放題で困ってます。うちの敷地や道路にもはみ出して空間が狭くなっています</p>
+					<div class="card-signal">
+						<div class="faces">
+							<span class="face a">住</span>
+							<span class="face b">田</span>
+							<span class="face c">+</span>
+						</div>
+						<span class="signal-text"><span class="n">3人</span>が「手伝います」</span>
+					</div>
+					<div class="card-meta">
+						<span class="pill open">受付</span>
+						<span class="pill scope">自治体</span>
+						<span class="card-time">8月1日</span>
+					</div>
+				</div>
+			</article>
+		</div>
+	</div>
+
+	<h2>2. 写真が無いときも空白にしない</h2>
+	<p class="doc-note">
+		写真は必須にしません（その場で撮れないこともあるため）。無いときは<strong>地図の切り抜き</strong>を代わりに置き、カードの形が崩れないようにします。文字だけの列に戻さないための措置です。
+	</p>
+
+	<div class="screens">
+		<div>
+			<p class="screen-label">写真あり</p>
+			<article class="card">
+				<div class="card-photo"></div>
+				<div class="card-body">
+					<h3 class="card-title">駅前の街灯が切れていて夜が暗い</h3>
+					<p class="card-desc">帰り道が見えにくく、段差でつまずきそうになります</p>
+					<div class="card-signal">
+						<div class="faces"><span class="face a">佐</span><span class="face b">+</span></div>
+						<span class="signal-text"><span class="n">12人</span>が「手伝います」</span>
+					</div>
+					<div class="card-meta">
+						<span class="pill progress">対応中</span>
+						<span class="pill scope">コミュニティ</span>
+						<span class="card-time">3日前</span>
+					</div>
+				</div>
+			</article>
+		</div>
+		<div>
+			<p class="screen-label">写真なし（地図で代替）</p>
+			<article class="card">
+				<div class="card-photo no-photo"><span class="no-photo-note">この場所の地図が入ります</span></div>
+				<div class="card-body">
+					<h3 class="card-title">バス停のベンチが壊れたまま</h3>
+					<p class="card-desc">高齢の方が立って待っています</p>
+					<div class="card-signal">
+						<div class="faces"><span class="face c">山</span></div>
+						<span class="signal-text"><span class="n">1人</span>が「手伝います」</span>
+					</div>
+					<div class="card-meta">
+						<span class="pill resolved">解決</span>
+						<span class="pill scope">個人</span>
+						<span class="card-time">先週</span>
+					</div>
+				</div>
+			</article>
+		</div>
+	</div>
+
+	<h2>3. 投稿の負担を減らす</h2>
+	<p class="doc-note">
+		「趣旨の理解に負担が少ないこと」は、読む側だけでなく<strong>書く側</strong>にも効きます。いま最初に出る項目は「タイトル」ですが、見本では<strong>写真から始めます</strong>。撮って出すのが一番軽く、写真があれば説明も短く済むためです。座標は自動で入り、数値は表に出しません。
+	</p>
+
+	<div class="screens">
+		<div>
+			<p class="screen-label">投稿画面</p>
+			<div class="phone">
+				<div class="app-bar">
+					<span class="logo"><span class="logo-mark">◎</span>World Issue Tracker</span>
+					<span class="app-bar-action">やめる</span>
+				</div>
+				<div class="form">
+					<p class="form-step">1 / 2</p>
+					<p class="form-q">どんな困りごとですか？</p>
+
+					<div class="field">
+						<div class="photo-drop">
+							<div class="photo-drop-icon">📷</div>
+							<p class="photo-drop-main">写真を撮る・選ぶ</p>
+							<p class="photo-drop-sub">1枚あるだけで伝わりやすくなります</p>
+						</div>
+					</div>
+
+					<div class="field">
+						<label for="t">ひとことで言うと</label>
+						<input id="t" type="text" value="隣の空き地の草が伸びてひどい" />
+					</div>
+
+					<div class="field">
+						<label for="d">くわしく（任意）</label>
+						<textarea id="d">夏になると草が伸び放題で、うちの敷地や道路にもはみ出しています</textarea>
+					</div>
+
+					<div class="field">
+						<label>場所</label>
+						<button class="locate" type="button">
+							📍 現在地から入力<span class="ok">✓ 取得済み</span>
+						</button>
+					</div>
+
+					<button class="cta" type="button">次へ</button>
+					<p class="cta-sub">次の画面で、どの範囲の困りごとかを選びます</p>
+				</div>
+			</div>
+		</div>
+
+		<div>
+			<p class="screen-label">トップページ</p>
+			<div class="phone">
+				<div class="app-bar">
+					<span class="logo"><span class="logo-mark">◎</span>World Issue Tracker</span>
+					<span class="app-bar-action">サインイン</span>
+				</div>
+				<div class="feed">
+					<button class="cta" type="button">困りごとを書く</button>
+					<p class="cta-sub">写真1枚と、ひとことから始められます</p>
+					<article class="card" style="margin-top:0.4rem">
+						<div class="card-photo"></div>
+						<div class="card-body">
+							<h3 class="card-title">隣の空き地の草が伸びてひどい</h3>
+							<p class="card-desc">ウチの隣が空き地になってるのですが、夏になると草が伸び放題で困ってます</p>
+							<div class="card-signal">
+								<div class="faces">
+									<span class="face a">住</span><span class="face b">田</span><span class="face c">+</span>
+								</div>
+								<span class="signal-text"><span class="n">3人</span>が「手伝います」</span>
+							</div>
+							<div class="card-meta">
+								<span class="pill open">受付</span>
+								<span class="pill scope">自治体</span>
+								<span class="card-time">8月1日</span>
+							</div>
+						</div>
+					</article>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<h2>4. 配色</h2>
+	<p class="doc-note">
+		主役は<strong>緑を1色だけ</strong>。「直す」「草木」「動き出す合図」に繋がる色です。ニュートラルも緑に寄せた温かいグレーにして、純グレーの「未設定な感じ」を避けています。状態の色（受付・対応中・解決）は<strong>主役とは別系統</strong>にして、意味を持たせています。
+	</p>
+
+	<div class="swatches">
+		<div class="sw"><div class="sw-chip" style="background:#1a7f5a"></div><div class="sw-body"><div class="sw-name">主役</div><div class="sw-hex">#1A7F5A</div><div class="sw-use">ボタン、リンク、件数</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#e8f5ef"></div><div class="sw-body"><div class="sw-name">主役の薄い方</div><div class="sw-hex">#E8F5EF</div><div class="sw-use">写真が無いときの下地</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#1c2420"></div><div class="sw-body"><div class="sw-name">文字</div><div class="sw-hex">#1C2420</div><div class="sw-use">見出し、本文</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#55605a"></div><div class="sw-body"><div class="sw-name">弱い文字</div><div class="sw-hex">#55605A</div><div class="sw-use">説明、補助</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#f7f9f7"></div><div class="sw-body"><div class="sw-name">背景</div><div class="sw-hex">#F7F9F7</div><div class="sw-use">ページの地</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#e2e8e4"></div><div class="sw-body"><div class="sw-name">罫線</div><div class="sw-hex">#E2E8E4</div><div class="sw-use">カードの枠、区切り</div></div></div>
+	</div>
+
+	<p class="doc-note" style="margin-top:1.5rem">状態を表す色（主役とは役割が違います）</p>
+	<div class="swatches">
+		<div class="sw"><div class="sw-chip" style="background:#b45309"></div><div class="sw-body"><div class="sw-name">受付</div><div class="sw-hex">#B45309</div><div class="sw-use">まだ誰も動いていない</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#1d4ed8"></div><div class="sw-body"><div class="sw-name">対応中</div><div class="sw-hex">#1D4ED8</div><div class="sw-use">誰かが動いている</div></div></div>
+		<div class="sw"><div class="sw-chip" style="background:#1a7f5a"></div><div class="sw-body"><div class="sw-name">解決</div><div class="sw-hex">#1A7F5A</div><div class="sw-use">直った</div></div></div>
+	</div>
+
+	<h2>5. 文字の段階</h2>
+	<p class="doc-note">
+		<strong>5段階だけ</strong>に絞ります。段階が多いと、どれを使うか毎回迷って揃わなくなります。書体は端末に入っているものを使い、読み込みを増やしません（表示が速い方が、負担が少ない）。
+	</p>
+
+	<div class="scale">
+		<div class="scale-row"><span class="scale-meta">28px / 700</span><span style="font-size:1.75rem;font-weight:700;line-height:1.4">ページの見出し</span></div>
+		<div class="scale-row"><span class="scale-meta">17px / 700</span><span style="font-size:1.0625rem;font-weight:700">カードの見出し</span></div>
+		<div class="scale-row"><span class="scale-meta">16px / 400</span><span style="font-size:1rem">本文。長い説明はこの大きさで読みます</span></div>
+		<div class="scale-row"><span class="scale-meta">14px / 400</span><span style="font-size:0.875rem;color:var(--ink-soft)">補助。カードの説明文、フォームの注記</span></div>
+		<div class="scale-row"><span class="scale-meta">12px / 700</span><span style="font-size:0.75rem;font-weight:700;color:var(--ink-faint)">ラベル。状態、日付、区分</span></div>
+	</div>
+
+	<h2>6. この見本に含まれない前提</h2>
+	<p class="doc-note">
+		<strong>写真の機能はまだ実装されていません</strong>（Issue #65、ストレージ未選定）。この見本は「写真が入る前提」で組んでいるので、採用する場合は #65 を先に進める必要があります。<br /><br />
+		「何人が手伝います」の表示は #61 で実装済みのデータが使えます。地図は #63 の PR が出ているので、写真が無いときの代役に流用できます。
+	</p>
+
+	<p class="foot">
+		見本です。実装前なので、この段階の修正にコストはかかりません。色・文字の大きさ・並べ方、どこでも変えられます。
+	</p>
+</div>
