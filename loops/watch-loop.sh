@@ -179,48 +179,57 @@ done
 #
 # 早期終了は個別には正常な動作なので、1 回では異常と見なせない。連続した回数で判断する。
 # 判定材料は launchd のログしかない（早期終了した実行は自分のログを残さない）。
+#
+# ただし早期終了の 2 種類を区別する。混ぜると、直したあとも鳴り続ける。
+#
+#   「すべて着手済み」          … 仕事はあるのに手が出せていない → 異常の疑い
+#   「処理可能なオープン Issue がない」… そもそも仕事が無い       → 正常な待機
+#
+# 後者は needs-discussion だけが残った状態で普通に起きる（実績 90 回）。
+# これを異常に混ぜると、人間が議論待ちの Issue を片付けるまで永久に
+# 報告し続けることになり、本物の異常が埋もれる。
 SKIP_STREAK_THRESHOLD=6   # 30 分間隔なので約 3 時間ぶん
 LAUNCHD_FIX_LOG="$LOG_DIR/launchd-fix.log"
+# 異常として数える早期終了の理由。fix-loop.sh の early_exit の文言に対応する
+STUCK_SKIP_PATTERN='すべて着手済み'
 
 if [ -f "$LAUNCHD_FIX_LOG" ]; then
-	# ログを逆順にたどり、最後に実作業した実行に出会うまでの SKIP を数える。
-	# これが「最後に何かに着手してからの空振り回数」になる。
+	# ログを逆順にたどり、連続が途切れるところまで「着手済みスキップ」を数える。
+	# これが「仕事があるのに手が出せていない連続回数」になる。
 	#
-	# 実作業の目印は「worktree を作成した」。ここが引き返せない地点で、
-	# 以降は必ず claude を起動する（＝ jsonl が残り、他の検査の対象になる）。
+	# 連続を切るもの:
+	#   - 「worktree を作成した」… 実際に着手した（引き返せない地点。以降は
+	#     必ず claude を起動するので jsonl が残り、他の検査の対象になる）
+	#   - 上記以外の SKIP     … 仕事が無いだけの正常な待機
 	# 「=== fix ループを開始 ===」は早期終了でも出るので目印に使えない。
 	#
 	# grep -a と LC_ALL=C: ログには claude の出力がそのまま流れ込むため
 	# 不正なバイト列が混じることがある。バイナリ判定されて検査が黙って
 	# 素通りするのを防ぐ。tac は macOS に無いので sed で行を逆順にする。
-	STREAK_COUNT="$(
+	#
+	# 起点の時刻も同時に採る。報告済み判定のキーに使うので「何回目か」ではなく
+	# 「どの期間か」を識別したい。詰まっている間はキーが変わらず（＝再報告
+	# しない）、一度回復して再び詰まったときは別のキーになって改めて報告される。
+	STREAK_RAW="$(
 		LC_ALL=C grep -aE 'SKIP: |worktree を作成した' "$LAUNCHD_FIX_LOG" 2>/dev/null \
 		| sed '1!G;h;$!d' \
-		| LC_ALL=C awk '
-			/worktree を作成した/ { exit }   # 実際に着手した実行に到達したら打ち切る
-			/SKIP: /              { n++ }
-		  END { print n + 0 }
+		| LC_ALL=C awk -v pat="$STUCK_SKIP_PATTERN" '
+			/worktree を作成した/ { exit }        # 着手した実行に到達したら打ち切る
+			index($0, pat)        { n++; last = $0; next }
+			/SKIP: /              { exit }        # 仕事が無いだけの正常な待機で切る
+		  END {
+			since = "unknown"
+			if (match(last, /^\[[^]]*\]/)) since = substr(last, RSTART + 1, RLENGTH - 2)
+			print (n + 0) "\t" since
+		  }
 		'
 	)"
+	STREAK_COUNT="$(printf '%s' "$STREAK_RAW" | cut -f1)"
+	STREAK_SINCE="$(printf '%s' "$STREAK_RAW" | cut -f2)"
 	[ -z "$STREAK_COUNT" ] && STREAK_COUNT=0
+	[ -z "$STREAK_SINCE" ] && STREAK_SINCE="unknown"
 	# 直近のスキップ理由（報告に添える）
 	STREAK_LAST="$(LC_ALL=C grep -a 'SKIP: ' "$LAUNCHD_FIX_LOG" 2>/dev/null | tail -1)"
-
-	# 空振りが始まった時刻。報告済み判定のキーに使う。
-	# 「何回目か」ではなく「どの空振り期間か」を識別したいので、
-	# 連続の起点（最後の実作業の直後にある最初の SKIP）の時刻を採る。
-	# これなら詰まっている間はキーが変わらず（＝再報告しない）、
-	# 一度回復して再び詰まったときは別のキーになって改めて報告される。
-	STREAK_SINCE="$(
-		LC_ALL=C grep -aE 'SKIP: |worktree を作成した' "$LAUNCHD_FIX_LOG" 2>/dev/null \
-		| sed '1!G;h;$!d' \
-		| LC_ALL=C awk '
-			/worktree を作成した/ { exit }
-			/SKIP: /              { last = $0 }
-		  END { if (match(last, /^\[[^]]*\]/)) print substr(last, RSTART + 1, RLENGTH - 2) }
-		'
-	)"
-	[ -z "$STREAK_SINCE" ] && STREAK_SINCE="unknown"
 
 	if [ "$STREAK_COUNT" -ge "$SKIP_STREAK_THRESHOLD" ]; then
 		# キーに回数を入れない。30 分ごとに回数が増えて別の事象になり、
@@ -229,7 +238,9 @@ if [ -f "$LAUNCHD_FIX_LOG" ]; then
 		add_finding "idle-streak:fix:$STREAK_SINCE" \
 			"**fix ループが $STREAK_COUNT 回連続で何もせず終了している**（$STREAK_SINCE 以降、一度も着手していない）— 起動も終了コードも正常なので他の検査には映らない。直近: \`$STREAK_LAST\`。オープン Issue に残骸ブランチが居座って全件スキップされている可能性がある（\`git branch\` と \`gh issue list\` を突き合わせて確認してください）"
 	else
-		say "fix ループの連続スキップ: ${STREAK_COUNT} 回（しきい値 $SKIP_STREAK_THRESHOLD）"
+		# 変数は必ず ${...} で囲む。直後が全角文字だと、bash がそれを
+		# 変数名の一部と解釈して unbound variable で落ちる（set -u のため）
+		say "fix ループが着手できずにスキップした連続回数: ${STREAK_COUNT} 回（しきい値 ${SKIP_STREAK_THRESHOLD}）"
 	fi
 fi
 
