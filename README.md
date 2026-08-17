@@ -14,6 +14,7 @@
 | [03-automated-loops.md](03-automated-loops.md) | 自動ループの実装。早期終了ガード、worktree 隔離、ハマったバグ、コスト実測 |
 | [04-scheduled-operation.md](04-scheduled-operation.md) | **launchd で無人運転**。PATH・Keychain 認証・二重起動防止、実際に起きた障害 |
 | [05-results-and-lessons.md](05-results-and-lessons.md) | **総括**。1日の成果、実行統計、コスト、学んだこと10個、ハマったバグ |
+| [06-recovering-a-stalled-loop.md](06-recovering-a-stalled-loop.md) | **7日間の停止からの復旧**。exit 0 のまま何も作らなくなったループ、観測の穴、認証の本番移行 |
 | [round1-spec.md](round1-spec.md) | 実験1で作り手エージェントに渡した仕様書 |
 
 ## 実装したループ
