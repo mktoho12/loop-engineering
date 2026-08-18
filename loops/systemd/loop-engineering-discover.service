@@ -1,0 +1,28 @@
+[Unit]
+Description=loop-engineering 発見ループ（コードを漁って問題を Issue 化する）
+# ネットワークが無いと gh も claude も動かないので待つ。
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/work/ai/loop-engineering/loops
+ExecStart=%h/work/ai/loop-engineering/loops/run-scheduled.sh discover
+
+# fix と同じく、config.sh の CLAUDE_TIMEOUT=2700（45分）が先に効き、その外側の
+# 保険としてここを 50分にする。順序が逆だと systemd が先に殺してしまい、
+# 生ログの後片付けが走らないまま終わる。CLAUDE_TIMEOUT を変えるときは
+# 必ずこちらもそれより大きく保つこと。
+TimeoutStopSec=3000
+
+# 対話作業の邪魔をしない低優先度。
+Nice=5
+IOSchedulingClass=idle
+
+Environment=LANG=ja_JP.UTF-8
+# systemd のサービスは対話シェルの PATH を引き継がない。run-scheduled.sh 側でも
+# 整えているが、mise / bun / claude を確実に見つけられるようここでも通しておく。
+Environment=PATH=%h/.local/bin:%h/.bun/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

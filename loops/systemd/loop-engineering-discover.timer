@@ -1,0 +1,19 @@
+[Unit]
+Description=発見ループを毎時起動する
+
+[Timer]
+# 毎時 10 分。fix（:00, :30）と watch（:15, :45）のどれとも被らない時刻に置いて、
+# main の pull や worktree 操作の競合を避ける（macOS 版は fix が毎時 :00 のみ
+# だったため :30 に置けたが、この機では fix が :00 と :30 の両方で動くので
+# 空いている :10 に寄せる）。HEAD が変わらず全観点を一巡していれば数秒で
+# 終わる（トークン消費ゼロ）。オープン Issue が15件以上あるときもスキップする。
+OnCalendar=*-*-* *:10:00
+
+# マシンが落ちていて起動を逃した場合、復帰後に1回だけ実行する。
+Persistent=true
+
+# :10 ちょうどに殺到するのを避ける。実行内容に即時性はない。
+RandomizedDelaySec=90
+
+[Install]
+WantedBy=timers.target
