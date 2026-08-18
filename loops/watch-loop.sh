@@ -99,7 +99,7 @@ while read -r raw; do
 	RECENT_ISSUES+=("$issue_num")
 done < <(ls -t "$LOG_DIR"/fix-*.jsonl 2>/dev/null | head -6)
 
-if [ "${#RECENT_ISSUES[@]:-0}" -ge 2 ]; then
+if [ "${#RECENT_ISSUES[@]}" -ge 2 ]; then
 	# 直近の失敗のうち、同じ Issue 番号が2回以上出ているものを探す
 	DUPES="$(printf '%s\n' "${RECENT_ISSUES[@]}" | sort | uniq -d)"
 	for num in $DUPES; do
