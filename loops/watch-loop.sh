@@ -145,23 +145,65 @@ for lf in $(ls -t "$LOG_DIR"/fix-*.log 2>/dev/null | head -6); do
 	fi
 done
 
-# --- 検査5: 成果ゼロなのにコストがかかっていないか ---
+# --- 検査5: 失敗した実行が何を残したか ---
 #
-# 失敗そのものより「高くついた失敗」を優先して知らせる。
+# 失敗そのものより「高くついた失敗」を優先して知らせる。ただし失敗にも段階が
+# ある。ブランチと PR を見て区別する。区別しないと、コミットまで作った実行を
+# 「成果ゼロ」と誤って報告する（実際 #133 でそれが起きた。$12 使ってコミットを
+# 1つ作った実行を「成果ゼロで消費」と報じた）。
+#
+#   PR まで出た      … 失敗扱いしない。最後の resume だけ落ちても成果は出ている
+#   コミットは残した … push / PR 化されず取り残されている。金額より「拾い漏れ」が問題
+#   何も残していない … 純粋な空振り。金だけ溶けた（COST_THRESHOLD 超で報告）
+#
+# ブランチ名は実行名から復元する（fix-<stamp>-issue<N> → fix/issue-N か feat/issue-N）。
+# git / gh はいずれも読み取りのみ。$WORKDIR は config.sh の対象リポジトリの作業ツリー。
 COST_THRESHOLD=5
 for raw in $(ls -t "$LOG_DIR"/fix-*.jsonl 2>/dev/null | head -6); do
 	name="$(basename "$raw" .jsonl)"
 	subtype="$(jq -r 'select(.type=="result") | .subtype' "$raw" 2>/dev/null | tail -1 || true)"
 	[ "$subtype" = "success" ] && continue
 
+	# total_cost_usd はセッション累積なので tail -1 がこの実行の総額。差分ではない
+	# （同一 session_id の途中経過が複数行出ることがあるが、最後が総計）。
 	cost="$(jq -r 'select(.type=="result") | .total_cost_usd // 0' "$raw" 2>/dev/null | tail -1 || true)"
-	[ -z "$cost" ] && continue
-	# bc が無い環境もあるので awk で比較する
-	over="$(awk -v c="$cost" -v t="$COST_THRESHOLD" 'BEGIN{print (c>t)?1:0}')"
-	if [ "$over" = "1" ]; then
-		# キーに金額を入れない。同じ実行の話なので name だけで一意になる
-		add_finding "costly-failure:$name" \
-			"**$name** — 成果ゼロで \$$(awk -v c="$cost" 'BEGIN{printf "%.2f", c}') を消費"
+	[ -z "$cost" ] && cost=0
+	cost_str="$(awk -v c="$cost" 'BEGIN{printf "%.2f", c}')"
+
+	issue_num="$(echo "$name" | sed -n 's/.*-issue\([0-9]*\).*/\1/p')"
+
+	# その Issue に紐づく PR が既にあるか。あれば成果は出ているので失敗扱いしない。
+	has_pr=0
+	if [ -n "$issue_num" ]; then
+		pr_count="$(gh pr list -R "$REPO" --state all --head "fix/issue-$issue_num" \
+			--json number --jq 'length' 2>/dev/null || echo 0)"
+		[ "${pr_count:-0}" -gt 0 ] && has_pr=1
+	fi
+	[ "$has_pr" = "1" ] && continue
+
+	# この実行のブランチにコミットが残っているか（読み取りのみ）。
+	commits=0
+	if [ -n "$issue_num" ] && [ -d "$WORKDIR/.git" ]; then
+		for br in "fix/issue-$issue_num" "feat/issue-$issue_num"; do
+			git -C "$WORKDIR" show-ref --verify --quiet "refs/heads/$br" || continue
+			commits="$(git -C "$WORKDIR" rev-list --count "origin/main..$br" 2>/dev/null || echo 0)"
+			[ "$commits" -gt 0 ] && break
+		done
+	fi
+
+	if [ "$commits" -gt 0 ]; then
+		# 金額でなく「完成した作業が PR にならず取り残されている」ことを知らせる。
+		# キーに金額やコミット数を入れない。同じ実行の話なので name だけで一意。
+		add_finding "stranded-commit:$name" \
+			"**$name** — コミット $commits 件を作ったが PR 化されず中断（\$$cost_str 消費、\`fix/issue-$issue_num\` に取り残し）。内容を確認して push するか破棄してください"
+	else
+		# 本当に何も残していない失敗。高くついたものだけ知らせる。
+		over="$(awk -v c="$cost" -v t="$COST_THRESHOLD" 'BEGIN{print (c>t)?1:0}')"
+		if [ "$over" = "1" ]; then
+			# キーに金額を入れない。同じ実行の話なので name だけで一意になる
+			add_finding "costly-failure:$name" \
+				"**$name** — 成果ゼロ（コミットも PR も無い）で \$$cost_str を消費"
+		fi
 	fi
 done
 
