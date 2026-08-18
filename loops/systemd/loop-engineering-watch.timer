@@ -1,0 +1,13 @@
+[Unit]
+Description=監視ループを30分ごとに起動する
+
+[Timer]
+# 毎時 15 分・45 分。修正ループ（0 分・30 分）の 15 分後に見に行く。
+# ハングは10分で検出するので、この間隔なら実行時間の上限（45分）に達する前に気づける。
+# LLM を使わないためトークン消費はゼロ。頻度を上げてもコストは増えない。
+OnCalendar=*-*-* *:15,45:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=修正ループを30分ごとに起動する
+
+[Timer]
+# 毎時 0 分・30 分。オープン Issue がなければ数秒で終わる（トークン消費ゼロ）。
+#
+# これ以上短くしないこと。15分間隔にすると長時間の実行が常に重なり、
+# node_modules を共有した状態での並行ビルド（.next / dist / turbo キャッシュ）を
+# 踏むことになる。そこは検証していない。
+OnCalendar=*-*-* *:00,30:00
+
+# マシンが落ちていて起動を逃した場合、復帰後に1回だけ実行する。
+Persistent=true
+
+# 全ユーザーが :00 ちょうどに殺到するのを避ける。実行内容に即時性はない。
+RandomizedDelaySec=90
+
+[Install]
+WantedBy=timers.target

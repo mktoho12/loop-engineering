@@ -1,0 +1,21 @@
+[Unit]
+Description=loop-engineering 監視ループ（ハングや PR 漏れを検出して Issue で報告）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/work/ai/loop-engineering/loops
+ExecStart=%h/work/ai/loop-engineering/loops/run-scheduled.sh watch --issue --quiet
+
+# jq と gh を叩くだけなので数秒で終わる。長引いたら異常。
+TimeoutStopSec=120
+
+Nice=5
+IOSchedulingClass=idle
+
+Environment=LANG=ja_JP.UTF-8
+Environment=PATH=%h/.local/bin:%h/.bun/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
