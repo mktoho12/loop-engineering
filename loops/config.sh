@@ -47,6 +47,16 @@ log() {
 	printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
 }
 
+# ファイルの最終更新時刻をエポック秒で返す。取れなければ 0。
+#
+# GNU coreutils は `stat -c %Y`、BSD/macOS は `stat -f %m` と書式が違う。
+# 以前は macOS 版だけを書いていたため、Linux では stat が「ファイルシステム情報」を
+# 出力してしまい（-f の意味が違う）、その文字列が算術式に流れ込んで
+# 監視ループが unbound variable で落ちていた。
+file_mtime() {
+	stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
+}
+
 # 早期終了。理由を記録して抜ける。トークンを1つも使わずに終わるのがこの関数の目的。
 early_exit() {
 	log "SKIP: $*"

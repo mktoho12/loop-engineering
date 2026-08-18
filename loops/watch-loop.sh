@@ -119,8 +119,7 @@ HANG_THRESHOLD_MIN=10
 if [ -d "$STATE_DIR/fix.lock" ]; then
 	LATEST_LOG="$(ls -t "$LOG_DIR"/fix-*.log 2>/dev/null | head -1)"
 	if [ -n "$LATEST_LOG" ]; then
-		# stat の -f %m は最終更新時刻（エポック秒）
-		last_mod="$(stat -f %m "$LATEST_LOG" 2>/dev/null || echo 0)"
+		last_mod="$(file_mtime "$LATEST_LOG")"
 		idle_min=$(( ($(date +%s) - last_mod) / 60 ))
 		if [ "$idle_min" -ge "$HANG_THRESHOLD_MIN" ]; then
 			# キーに経過分数を入れない。1分ごとに別の事象になり、
@@ -236,7 +235,7 @@ if [ -f "$LAUNCHD_FIX_LOG" ]; then
 		# 詰まっている間ずっと報告し続けることになる。
 		# 代わりに起点の時刻を入れて「この空振り期間」を一意に識別する。
 		add_finding "idle-streak:fix:$STREAK_SINCE" \
-			"**fix ループが $STREAK_COUNT 回連続で何もせず終了している**（$STREAK_SINCE 以降、一度も着手していない）— 起動も終了コードも正常なので他の検査には映らない。直近: \`$STREAK_LAST\`。オープン Issue に残骸ブランチが居座って全件スキップされている可能性がある（\`git branch\` と \`gh issue list\` を突き合わせて確認してください）"
+			"**fix ループが $STREAK_COUNT 回連続で何もせず終了している**（$STREAK_SINCE 以降、一度も着手していない）— 起動も終了コードも正常なので他の検査には映らない。直近: \`$STREAK_LAST\`。オープン Issue に残骸のブランチや worktree が居座って全件スキップされている可能性がある（\`git branch\` と \`git worktree list\` を \`gh issue list\` と突き合わせて確認してください）"
 	else
 		# 変数は必ず ${...} で囲む。直後が全角文字だと、bash がそれを
 		# 変数名の一部と解釈して unbound variable で落ちる（set -u のため）
