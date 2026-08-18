@@ -44,6 +44,7 @@ LENSES=(
 	"correctness:境界値・null・並行アクセスで壊れる箇所、エラーハンドリングの漏れ、リソースリーク"
 	"product-gap:CLAUDE.md の MVP スコープにあるのに存在しない機能、API はあるが画面から使えないもの、繋がっていない層の間の穴"
 	"ux:初めて訪れたユーザーが次に何をすればいいか分からない画面、操作の入口がない機能、エラー時に何が起きたか分からない箇所"
+	"user-voice:本番の利用者が投稿した Issue のうち、このシステム自身への要望・不具合報告になっているもの"
 )
 
 # --- 現在の状態を取得 ---
@@ -72,7 +73,11 @@ log "観点: $LENS_NAME  (通算 $RUN_COUNT 回目)"
 
 # --- ガード1: HEAD が変わっておらず、全観点を一巡済みなら終了 ---
 # 一巡していなければ、HEAD が同じでも別観点で見る価値がある。
-if [ "$FORCE" -eq 0 ] && [ "$CURRENT_HEAD" = "$PREV_HEAD" ]; then
+#
+# user-voice だけは免除する。この観点が読むのは本番の利用者の投稿であって
+# コードではない。HEAD が動かない期間はコードが止まっているだけで、
+# 利用者の声はその間も増える。むしろ開発が止まっているときこそ拾う価値がある。
+if [ "$FORCE" -eq 0 ] && [ "$CURRENT_HEAD" = "$PREV_HEAD" ] && [ "$LENS_NAME" != "user-voice" ]; then
 	COMPLETED_CYCLES="$(jq -r '.completed_cycles // 0' "$STATE_FILE" 2>/dev/null || echo 0)"
 	if [ "$COMPLETED_CYCLES" -ge 1 ]; then
 		early_exit "HEAD が前回から変わっておらず、全観点を一巡済み (${CURRENT_HEAD:0:8})"
@@ -122,6 +127,8 @@ PROMPT="${PROMPT//\{\{MAX_NEW_ISSUES\}\}/$MAX_NEW_ISSUES}"
 PROMPT="${PROMPT//\{\{BOT_LABEL\}\}/$BOT_LABEL}"
 PROMPT="${PROMPT//\{\{EXISTING_ISSUES\}\}/$EXISTING_ISSUES}"
 PROMPT="${PROMPT//\{\{SCAN_HINT\}\}/$SCAN_HINT}"
+PROMPT="${PROMPT//\{\{PROD_SITE_URL\}\}/$PROD_SITE_URL}"
+PROMPT="${PROMPT//\{\{PROD_API_URL\}\}/$PROD_API_URL}"
 
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 LOG_FILE="$LOG_DIR/discover-$STAMP-$LENS_NAME.log"

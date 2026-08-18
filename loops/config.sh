@@ -31,6 +31,12 @@ MAX_FIX_PER_RUN=1
 # （先にこちらが効いて、生ログとログ出力が残るようにするため）。
 CLAUDE_TIMEOUT=2700
 
+# --- 本番環境 ---
+# 利用者が実際に使っているサイトと、その API。
+# 発見ループの user-voice 観点が、利用者の声を読むために叩く。
+PROD_SITE_URL="https://issues.emaker.dev"
+PROD_API_URL="https://world-issue-tracker-api.mktoho.workers.dev"
+
 # --- ラベル ---
 # 修正ループが「触ってはいけない」Issue に付けるラベル。
 # 人間が議論中のもの、方針が決まっていないものを除外する。
