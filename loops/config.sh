@@ -5,9 +5,10 @@
 REPO="EngineMaker/world-issue-tracker"
 # メインの作業ディレクトリ。発見ループ（読むだけ）はここを使う。
 # 修正ループは書き込むので、ここではなく worktree を作って隔離する。
-WORKDIR="/Users/mktoho/work/ai/world-issue-tracker"
+# macOS と Linux の両方で動くよう $HOME 基準にする（決め打ちにすると移設のたびに書き換えが要る）。
+WORKDIR="${LOOP_WORKDIR:-$HOME/work/ai/world-issue-tracker}"
 # worktree の置き場所。修正ループが Issue ごとに1つ作る。
-WORKTREE_ROOT="/Users/mktoho/work/ai/.worktrees"
+WORKTREE_ROOT="${LOOP_WORKTREE_ROOT:-$HOME/work/ai/.worktrees}"
 
 # --- このディレクトリ ---
 LOOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

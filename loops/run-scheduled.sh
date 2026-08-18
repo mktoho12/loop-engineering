@@ -78,15 +78,24 @@ if [ "$LOOP_TYPE" = "watch" ]; then
 fi
 
 # --- 認証の確認 ---
-# 認証情報は Keychain (login.keychain) にある。ここが読めないと claude は
-# "Not logged in" で即死する。ループを起動してから気づくとログを見ないと
-# 分からないので、先に確認して分かりやすいエラーで落とす。
+# 認証情報が読めないと claude は "Not logged in" で即死する。ループを起動して
+# から気づくとログを見ないと分からないので、先に確認して分かりやすいエラーで落とす。
 #
-# API を呼ばずに確認できるよう、Keychain の存在だけを見る。
-if ! security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; then
-	echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Claude の認証情報が Keychain から読めません" >&2
+# 保存先は OS で違う:
+#   macOS  Keychain (login.keychain) — security コマンドで存在を確認する
+#   Linux  ~/.claude/.credentials.json — ファイルの存在を確認する
+# どちらも API を呼ばずに確認できる。
+if command -v security >/dev/null 2>&1; then
+	if ! security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; then
+		echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Claude の認証情報が Keychain から読めません" >&2
+		echo "  対話シェルで 'claude' を起動して /login を実行してください。" >&2
+		echo "  既にログイン済みなら、Keychain のアクセス許可が原因の可能性があります。" >&2
+		exit 1
+	fi
+elif [ ! -f "$HOME/.claude/.credentials.json" ]; then
+	echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Claude の認証情報が見つかりません" >&2
+	echo "  想定していた場所: $HOME/.claude/.credentials.json" >&2
 	echo "  対話シェルで 'claude' を起動して /login を実行してください。" >&2
-	echo "  既にログイン済みなら、Keychain のアクセス許可が原因の可能性があります。" >&2
 	exit 1
 fi
 
