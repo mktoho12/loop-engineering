@@ -33,6 +33,75 @@ done
 
 mkdir -p "$STATE_DIR" "$LOG_DIR" "$WORKTREE_ROOT"
 
+# --- worktree の所有者管理 ---
+#
+# worktree が残っているだけでは「作業中」とは言えない。再起動や強制終了で
+# ループが死ぬと worktree だけが残り、以前はそれを掴んだ Issue が自動選択から
+# 永久に外れていた（fix.lock と同じ穴。あちらは kill -0 で回収している）。
+# 誰が掴んでいるのかを PID で記録し、生死で見分ける。
+
+# PID / keep マーカーは worktree の「隣」に置く。中に置くと git worktree の
+# 管理対象に入り込み、remove やテストの邪魔になる。
+worktree_pid_file() { echo "$WORKTREE_ROOT/issue-$1.pid"; }
+worktree_keep_file() { echo "$WORKTREE_ROOT/issue-$1.keep"; }
+
+# その worktree に手を出してはいけないか。
+#   keep マーカー … --keep で意図的に残されたもの（デバッグ中）
+#   PID が生きている … 実際に別のループが作業中
+# PID ファイルが無い worktree は、所有者を追えないので残骸として扱う。
+worktree_in_use() {
+	[ -f "$(worktree_keep_file "$1")" ] && return 0
+
+	local pid_file pid
+	pid_file="$(worktree_pid_file "$1")"
+	[ -f "$pid_file" ] || return 1
+	pid="$(cat "$pid_file" 2>/dev/null || echo "")"
+	[ -n "$pid" ] || return 1
+	kill -0 "$pid" 2>/dev/null
+}
+
+# 残骸の worktree を片付けて、その Issue をもう一度選べる状態に戻す。
+# $WORKDIR にいることを前提とする（worktree の操作はメイン側で行う）。
+reclaim_worktree() {
+	local num="$1"
+	local worktree="$WORKTREE_ROOT/issue-$num"
+
+	git worktree remove --force "$worktree" 2>/dev/null || rm -rf "$worktree"
+	git worktree prune
+	rm -f "$(worktree_pid_file "$num")" "$(worktree_keep_file "$num")"
+
+	# worktree が掴んでいたブランチも一緒に始末する。
+	# ここを残すと、下のブランチ判定で結局スキップされて穴が塞がらない。
+	local branch count archived
+	for branch in "fix/issue-$num" "feat/issue-$num"; do
+		git show-ref --verify --quiet "refs/heads/$branch" || continue
+		# リモートにあるなら他所の作業かもしれない。触らない。
+		git show-ref --verify --quiet "refs/remotes/origin/$branch" && continue
+
+		# 数えられなかったときは 1 に倒す。0 に倒すとブランチを削除する側に
+		# 落ちるため、異常時にコミットを失う（既存のブランチ回収処理と同じ判断）。
+		count="$(git rev-list --count "origin/main..$branch" 2>/dev/null || echo 1)"
+		if [ "$count" -eq 0 ]; then
+			git branch -D "$branch" >/dev/null 2>&1 || true
+			log "  空ブランチ $branch を削除した"
+		else
+			# 中途半端でも人が書いたのと同じコミットなので、捨てずに退避する。
+			archived="abandoned/$branch-$(git rev-parse --short "$branch")"
+			git branch -m "$branch" "$archived" >/dev/null 2>&1 || true
+			log "  $branch を $archived に退避した（コミット $count 件）"
+		fi
+	done
+}
+
+# ローカルとリモートのブランチ名を集める。
+# reclaim_worktree の後で取り直す必要があるため関数にしてある。
+list_existing_branches() {
+	{
+		git branch --format='%(refname:short)'
+		git branch -r --format='%(refname:short)' | sed 's|^origin/||'
+	} | sort -u
+}
+
 # --- 対象 Issue を選ぶ ---
 #
 # 除外するもの:
@@ -67,21 +136,22 @@ else
 	# ブランチが既にあるものを除外する。
 	# ローカルとリモートの両方を見る（他のループが作業中かもしれない）。
 	git fetch --quiet origin 2>/dev/null || true
-	EXISTING_BRANCHES="$(
-		{
-			git branch --format='%(refname:short)'
-			git branch -r --format='%(refname:short)' | sed 's|^origin/||'
-		} | sort -u
-	)"
+	EXISTING_BRANCHES="$(list_existing_branches)"
 
 	SELECTED=""
 	while read -r num; do
 		[ -z "$num" ] && continue
 
-		# worktree が残っている = 別のループが作業中。手を出さない。
+		# worktree が残っている = 作業中か、異常終了の残骸か。所有者の生死で見分ける。
 		if [ -d "$WORKTREE_ROOT/issue-$num" ]; then
-			log "Issue #$num は worktree が存在するのでスキップ（作業中の可能性）"
-			continue
+			if worktree_in_use "$num"; then
+				log "Issue #$num は worktree を使用中のプロセスがあるのでスキップ"
+				continue
+			fi
+			log "Issue #$num の worktree は残骸なので回収する（所有者のプロセスが居ない）"
+			reclaim_worktree "$num"
+			# ブランチの状態が変わったので、下の判定に使う一覧を取り直す
+			EXISTING_BRANCHES="$(list_existing_branches)"
 		fi
 
 		if echo "$EXISTING_BRANCHES" | grep -qE "^(fix|feat)/issue-${num}$"; then
@@ -149,10 +219,14 @@ if [ -d "$WORKTREE" ]; then
 	git worktree remove --force "$WORKTREE" 2>/dev/null || rm -rf "$WORKTREE"
 	git worktree prune
 fi
+rm -f "$(worktree_keep_file "$ISSUE_NUM")"
 git branch -D "$BRANCH" 2>/dev/null || true
 
 git fetch --quiet origin main
 git worktree add --quiet -b "$BRANCH" "$WORKTREE" origin/main
+# 誰がこの worktree を掴んでいるかを残す。これが無いと、次回以降この Issue が
+# 「作業中かもしれない」として永久にスキップされる。
+echo $$ > "$(worktree_pid_file "$ISSUE_NUM")"
 log "worktree を作成した"
 
 # 後片付け。成功しても失敗しても worktree は消す（ブランチは残す）。
@@ -163,6 +237,10 @@ DELETE_EMPTY_BRANCH=0
 cleanup() {
 	local code=$?
 	if [ "$KEEP_WORKTREE" -eq 1 ]; then
+		# 「残骸ではなく意図して残した」ことを次回の実行に伝える。
+		# これが無いと、次の実行が残骸とみなして消してしまう。
+		rm -f "$(worktree_pid_file "$ISSUE_NUM")"
+		touch "$(worktree_keep_file "$ISSUE_NUM")"
 		log "worktree を残した: $WORKTREE"
 		return $code
 	fi
@@ -172,6 +250,7 @@ cleanup() {
 		git worktree prune
 		log "worktree を削除した"
 	fi
+	rm -f "$(worktree_pid_file "$ISSUE_NUM")"
 	# worktree が消えた後なら空ブランチを削除できる
 	if [ "$DELETE_EMPTY_BRANCH" -eq 1 ]; then
 		cd "$WORKDIR"
