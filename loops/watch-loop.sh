@@ -307,8 +307,10 @@ if [ -d "$WORKDIR/.git" ]; then
 		# リモートに同名があれば push 済み。ロックにならない
 		git -C "$WORKDIR" show-ref --verify --quiet "refs/remotes/origin/$br" && continue
 
-		num="$(echo "$br" | sed -n 's|^\(fix\|feat\)/issue-\([0-9]*\)$|\2|p')"
-		[ -z "$num" ] && continue
+		# 番号を取り出す。sed の BRE で \( a \| b \) を使うと BSD sed で動かず、
+		# 区切り文字 | とも衝突する。bash の展開なら移植性の心配がない。
+		num="${br##*/issue-}"
+		case "$num" in ''|*[!0-9]*) continue ;; esac
 
 		# コミットが無いブランチは fix-loop.sh が自動で回収するので放っておく
 		cnt="$(git -C "$WORKDIR" rev-list --count "origin/$BASE_BRANCH..$br" 2>/dev/null || echo 0)"
