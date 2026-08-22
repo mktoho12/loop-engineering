@@ -247,7 +247,7 @@ ci  Test              Tests  25 passed (25)
 ## ラウンド1: DELETE /issues/:id を作り手↔検証役のループで実装
 
 PR #1 がマージされ、土台が整ったので本来の題材に着手。
-ブランチ `feat/delete-issue`。仕様書は [round1-spec.md](round1-spec.md)。
+ブランチ `feat/delete-issue`。仕様書は [round1-spec.md](https://github.com/EngineMaker/world-issue-tracker/blob/main/docs/product/round1-spec.md)（WIT 側へ移設）。
 
 進め方は **A → B**:
 - **フェーズA**: 素朴な3条件（test / lint / check）だけで回し、罠が漏れることを観察する

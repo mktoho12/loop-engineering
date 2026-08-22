@@ -4,6 +4,15 @@
 
 2026年6〜7月に Boris Cherny（Anthropic / Claude Code 作者）、Peter Steinberger（OpenAI / OpenClaw 作者）、Andrew Ng の発言をきっかけに広まった考え方。ざっくり言えば **「AIにプロンプトを打つ人間」という役割から自分を外し、代わりにプロンプトを打つ仕組み（ループ）を設計する** こと。
 
+## このリポジトリの範囲
+
+ここに置くのは **どんなプロジェクトにも当てはまるループの方法論と仕組み** だけ。
+ループを回す題材として [EngineMaker/world-issue-tracker](https://github.com/EngineMaker/world-issue-tracker)（WIT）を使っているため
+記録には WIT の話が頻繁に出てくるが、それはあくまで「例」として扱う。
+
+WIT 固有のプロダクト判断（想定利用者、デザイン方針、個別 Issue の論点整理など）は
+WIT 側の [`docs/product/`](https://github.com/EngineMaker/world-issue-tracker/tree/main/docs/product) に置いてある。
+
 ## ドキュメント
 
 | ファイル | 内容 |
@@ -15,7 +24,6 @@
 | [04-scheduled-operation.md](04-scheduled-operation.md) | **launchd で無人運転**。PATH・Keychain 認証・二重起動防止、実際に起きた障害 |
 | [05-results-and-lessons.md](05-results-and-lessons.md) | **総括**。1日の成果、実行統計、コスト、学んだこと10個、ハマったバグ |
 | [06-recovering-a-stalled-loop.md](06-recovering-a-stalled-loop.md) | **7日間の停止からの復旧**。exit 0 のまま何も作らなくなったループ、観測の穴、認証の本番移行 |
-| [round1-spec.md](round1-spec.md) | 実験1で作り手エージェントに渡した仕様書 |
 
 ## 実装したループ
 
