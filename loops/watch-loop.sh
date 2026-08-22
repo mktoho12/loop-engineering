@@ -158,6 +158,9 @@ done
 #
 # ブランチ名は実行名から復元する（fix-<stamp>-issue<N> → fix/issue-N か feat/issue-N）。
 # git / gh はいずれも読み取りのみ。$WORKDIR は config.sh の対象リポジトリの作業ツリー。
+# push されずに残ったブランチを「滞留」とみなすまでの時間。
+# 修正ループの実行は最長60分なので、実行中のものを誤検出しない値にする。
+UNPUSHED_AGE_THRESHOLD_H=3
 COST_THRESHOLD=5
 for raw in $(ls -t "$LOG_DIR"/fix-*.jsonl 2>/dev/null | head -6); do
 	name="$(basename "$raw" .jsonl)"
@@ -283,6 +286,46 @@ if [ -f "$LAUNCHD_FIX_LOG" ]; then
 		# 変数名の一部と解釈して unbound variable で落ちる（set -u のため）
 		say "fix ループが着手できずにスキップした連続回数: ${STREAK_COUNT} 回（しきい値 ${SKIP_STREAK_THRESHOLD}）"
 	fi
+fi
+
+# --- 検査7: push されていないブランチが Issue をロックしていないか ---
+#
+# 検査5もコミットの取り残しを見るが、あちらには2つの穴がある:
+#   1. 直近6件の jsonl しか見ない。SKIP した実行は jsonl を残さないので、
+#      詰まった実行はすぐ範囲外へ押し出される
+#   2. subtype=success を即 continue する。成功で終わりながら push だけ
+#      できていない実行（実際に Issue #139 がそうだった）は素通りする
+#
+# ここではログを一切見ず、**いまのブランチの状態**を直接見る。
+# 修正ループはブランチのある Issue をスキップするので、push されていない
+# ブランチは対応する Issue を人間が気づくまで永久にロックする。
+# 2026-08-19 の #139 / #143 がこれで詰まり、152 回連続 SKIP を招いた。
+if [ -d "$WORKDIR/.git" ]; then
+	git -C "$WORKDIR" fetch --quiet origin 2>/dev/null || true
+	while read -r br; do
+		[ -z "$br" ] && continue
+		# リモートに同名があれば push 済み。ロックにならない
+		git -C "$WORKDIR" show-ref --verify --quiet "refs/remotes/origin/$br" && continue
+
+		num="$(echo "$br" | sed -n 's|^\(fix\|feat\)/issue-\([0-9]*\)$|\2|p')"
+		[ -z "$num" ] && continue
+
+		# コミットが無いブランチは fix-loop.sh が自動で回収するので放っておく
+		cnt="$(git -C "$WORKDIR" rev-list --count "origin/$BASE_BRANCH..$br" 2>/dev/null || echo 0)"
+		[ "${cnt:-0}" -eq 0 ] && continue
+
+		# 対応する Issue が閉じているなら、ロックしていないので急がない
+		state="$(gh issue view "$num" -R "$REPO" --json state --jq '.state' 2>/dev/null || echo "")"
+		[ "$state" = "CLOSED" ] && continue
+
+		# 最終コミットからの経過時間。すぐ push される途中かもしれないので少し待つ
+		last="$(git -C "$WORKDIR" log -1 --format=%ct "$br" 2>/dev/null || echo 0)"
+		age_h=$(( ( $(date +%s) - ${last:-0} ) / 3600 ))
+		[ "$age_h" -lt "$UNPUSHED_AGE_THRESHOLD_H" ] && continue
+
+		add_finding "unpushed-branch:$br" \
+			"**\`$br\` が push されないまま ${age_h} 時間 滞留している**（コミット ${cnt} 件、Issue #${num} は ${state}）— 修正ループはブランチのある Issue をスキップするため、**この Issue は永久に選ばれません**。\`git log origin/$BASE_BRANCH..$br\` で中身を確認し、push して PR にするか破棄してください"
+	done < <(git -C "$WORKDIR" branch --format='%(refname:short)' 2>/dev/null | grep -E '^(fix|feat)/issue-[0-9]+$' || true)
 fi
 
 # --- 結果 ---

@@ -9,11 +9,15 @@ Type=oneshot
 WorkingDirectory=%h/work/ai/loop-engineering/loops
 ExecStart=%h/work/ai/loop-engineering/loops/run-scheduled.sh fix
 
-# launchd の ExitTimeOut=3000 に対応する。config.sh の CLAUDE_TIMEOUT=2700（45分）が
-# 先に効き、その外側の保険としてここを 50分にする。順序が逆だと systemd が先に
-# 殺してしまい、生ログも worktree の後片付けも走らないまま終わる。
+# config.sh の CLAUDE_TIMEOUT=3600（60分）が先に効き、その外側の保険として
+# ここを 65分にする。順序が逆だと systemd が先に殺してしまい、生ログも
+# worktree の後片付けも走らないまま終わる。
 # CLAUDE_TIMEOUT を変えるときは、必ずこちらもそれより大きく保つこと。
-TimeoutStopSec=3000
+#
+# タイマーは30分間隔だが CLAUDE_TIMEOUT は最大60分なので、実行が次の起動に
+# またがりうる。systemd は同じ unit の二重起動を行わない（実行中に発火した分は
+# 捨てられる）ため、node_modules を共有した並行ビルドにはならない。
+TimeoutStopSec=3900
 
 # 対話作業の邪魔をしない低優先度（launchd の Nice=5 と ProcessType=Background 相当）。
 Nice=5

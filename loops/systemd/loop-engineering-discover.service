@@ -13,7 +13,7 @@ ExecStart=%h/work/ai/loop-engineering/loops/run-scheduled.sh discover
 # 保険としてここを 50分にする。順序が逆だと systemd が先に殺してしまい、
 # 生ログの後片付けが走らないまま終わる。CLAUDE_TIMEOUT を変えるときは
 # 必ずこちらもそれより大きく保つこと。
-TimeoutStopSec=3000
+TimeoutStopSec=3900
 
 # 対話作業の邪魔をしない低優先度。
 Nice=5
