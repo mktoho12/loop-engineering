@@ -31,7 +31,7 @@
 - **ブランチ `{{BRANCH}}` は作成済みで、既にチェックアウトされています。** 新しくブランチを切らないでください
 - ベースは最新の `origin/main` です
 - `node_modules` はメインの作業ディレクトリへの**シンボリックリンク**です。
-  **`bun install` / `bun add` を実行しないでください** — リンクの先（共有している本体）を
+  **`{{PKG_MANAGER}} install` / `{{PKG_MANAGER}} add` を実行しないでください** — リンクの先（共有している本体）を
   書き換えてしまい、同時に走っている他のループを壊します。
   新しい依存が必要になったときの対応は「詰まったとき」の節を参照してください
 - `.dev.vars` などの環境変数ファイルはコピー済みです
@@ -165,10 +165,7 @@ ls apps/api/migrations/
 以下がすべて exit 0 になることを確認してください:
 
 ```bash
-bun run test
-bun run lint
-bun run check
-bun run build
+{{VERIFY_CMDS}}
 ```
 
 **通らなければ直してください。** 通るまで次に進まないでください。
@@ -258,7 +255,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
 ```bash
 git push -u origin {{BRANCH}}
-gh pr create -R {{REPO}} --base main --head {{BRANCH}} \
+gh pr create -R {{REPO}} --base {{BASE_BRANCH}} --head {{BRANCH}} \
   --title "..." --body-file /tmp/pr-body.md
 ```
 
@@ -374,7 +371,7 @@ until ! pgrep -f opennextjs >/dev/null; do sleep 5; done
 
 ### 新しい依存パッケージが必要になった場合
 
-**`bun install` / `bun add` は実行せず、Issue にコメントして人間に依頼してください。**
+**`{{PKG_MANAGER}} install` / `{{PKG_MANAGER}} add` は実行せず、Issue にコメントして人間に依頼してください。**
 
 コメントに書くこと:
 
@@ -386,10 +383,10 @@ until ! pgrep -f opennextjs >/dev/null; do sleep 5; done
 **シンボリックリンク**です。
 
 ```
-.worktrees/issue-N/node_modules  →  world-issue-tracker/node_modules
+.worktrees/issue-N/node_modules  →  <メインの作業ディレクトリ>/node_modules
 ```
 
-`bun install` を実行すると、リンクの先（＝メインの `node_modules`）を直接書き換えます。
+`{{PKG_MANAGER}} install` を実行すると、リンクの先（＝メインの `node_modules`）を直接書き換えます。
 worktree 内での作業のつもりが共有している本体を壊し、**同時に走っている他のループの
 足元も崩れます**。隔離が壊れるので実行しないでください。
 

@@ -119,7 +119,9 @@ else
 fi
 
 PROMPT="$(cat "$PROMPT_DIR/discover.md")"
+VERIFY_INLINE="$(printf '%s / ' ${VERIFY_CMDS[@]+"${VERIFY_CMDS[@]}"} | sed 's| / $||')"
 PROMPT="${PROMPT//\{\{REPO\}\}/$REPO}"
+PROMPT="${PROMPT//\{\{VERIFY_CMDS_INLINE\}\}/$VERIFY_INLINE}"
 PROMPT="${PROMPT//\{\{WORKDIR\}\}/$WORKDIR}"
 PROMPT="${PROMPT//\{\{LENS_NAME\}\}/$LENS_NAME}"
 PROMPT="${PROMPT//\{\{LENS_DESC\}\}/$LENS_DESC}"

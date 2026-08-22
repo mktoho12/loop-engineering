@@ -32,10 +32,23 @@ WIT 側の [`docs/product/`](https://github.com/EngineMaker/world-issue-tracker/
 ```
 loops/
 ├── config.sh            # 共通設定・run_claude / early_exit
+├── targets/             # 対象プロジェクトごとの設定（対象依存はここだけ）
 ├── discover-loop.sh     # 発見ループ（問題を見つけて Issue 化）
 ├── fix-loop.sh          # 修正ループ（Issue を直して PR 化）
+├── watch-loop.sh        # 監視ループ（LLM を使わずログを機械的に検査）
+├── run-scheduled.sh     # launchd / systemd から呼ぶラッパ
 ├── format-stream.jq     # stream-json を人間可読に整形
 └── prompts/             # 各ループのプロンプト
+```
+
+ループ本体は特定のプロジェクトに依存しない。リポジトリ名・検証コマンド・
+ワークスペース構成といった対象依存の設定は [`loops/targets/`](loops/targets/) に分けてあり、
+別のプロジェクトに向けるときは設定ファイルを1つ足して `LOOP_TARGET` で選ぶ:
+
+```bash
+cp loops/targets/world-issue-tracker.sh loops/targets/my-project.sh
+$EDITOR loops/targets/my-project.sh
+LOOP_TARGET=my-project loops/fix-loop.sh
 ```
 
 ### 使い方

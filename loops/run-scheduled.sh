@@ -36,8 +36,10 @@ export MISE_TRUSTED_CONFIG_PATHS="${MISE_TRUSTED_CONFIG_PATHS:-$HOME/work/ai}"
 
 # --- 必要なコマンドの存在確認 ---
 # 足りないまま起動すると原因が分かりにくいので、先に落とす。
+# bun は対象プロジェクトの都合なので、別のツールチェーンを使う対象では
+# LOOP_REQUIRED_CMDS で上書きする（例: LOOP_REQUIRED_CMDS="claude gh jq git pnpm"）。
 MISSING=""
-for cmd in claude gh jq git bun; do
+for cmd in ${LOOP_REQUIRED_CMDS:-claude gh jq git bun}; do
 	command -v "$cmd" >/dev/null 2>&1 || MISSING="$MISSING $cmd"
 done
 if [ -n "$MISSING" ]; then

@@ -1,17 +1,32 @@
 #!/usr/bin/env bash
 # 発見ループ・修正ループの共通設定。各ループから source される。
 
+# --- このディレクトリ ---
+LOOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # --- 対象 ---
-REPO="EngineMaker/world-issue-tracker"
-# メインの作業ディレクトリ。発見ループ（読むだけ）はここを使う。
-# 修正ループは書き込むので、ここではなく worktree を作って隔離する。
-# macOS と Linux の両方で動くよう $HOME 基準にする（決め打ちにすると移設のたびに書き換えが要る）。
-WORKDIR="${LOOP_WORKDIR:-$HOME/work/ai/world-issue-tracker}"
+# 対象プロジェクトの設定は loops/targets/<名前>.sh に分けてある。
+# 別のプロジェクトでループを回すときは、そのファイルを複製して
+# LOOP_TARGET=<名前> を指定する。ループ本体は書き換えなくてよい。
+LOOP_TARGET="${LOOP_TARGET:-world-issue-tracker}"
+TARGET_FILE="$LOOP_DIR/targets/${LOOP_TARGET}.sh"
+if [ ! -f "$TARGET_FILE" ]; then
+	printf 'ERROR: 対象の設定が見つかりません: %s\n' "$TARGET_FILE" >&2
+	printf '       利用できる対象: %s\n' "$(ls "$LOOP_DIR/targets" 2>/dev/null | sed 's/\.sh$//' | tr '\n' ' ')" >&2
+	exit 1
+fi
+# shellcheck source=/dev/null
+. "$TARGET_FILE"
+
+# 対象ファイルが必ず定義すべきもの。未設定のまま走ると
+# gh が別のリポジトリを触りかねないので、ここで止める。
+: "${REPO:?targets/${LOOP_TARGET}.sh で REPO を設定してください}"
+: "${WORKDIR:?targets/${LOOP_TARGET}.sh で WORKDIR を設定してください}"
+BASE_BRANCH="${BASE_BRANCH:-main}"
+
 # worktree の置き場所。修正ループが Issue ごとに1つ作る。
 WORKTREE_ROOT="${LOOP_WORKTREE_ROOT:-$HOME/work/ai/.worktrees}"
 
-# --- このディレクトリ ---
-LOOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="$LOOP_DIR/state"
 LOG_DIR="$LOOP_DIR/logs"
 PROMPT_DIR="$LOOP_DIR/prompts"
@@ -32,10 +47,11 @@ MAX_FIX_PER_RUN=1
 CLAUDE_TIMEOUT=2700
 
 # --- 本番環境 ---
-# 利用者が実際に使っているサイトと、その API。
+# 利用者が実際に使っているサイトと、その API（対象ごとに違うので targets/ で設定する）。
 # 発見ループの user-voice 観点が、利用者の声を読むために叩く。
-PROD_SITE_URL="https://issues.emaker.dev"
-PROD_API_URL="https://world-issue-tracker-api.mktoho.workers.dev"
+# 未設定なら user-voice 観点は使えないが、他の観点は動く。
+PROD_SITE_URL="${PROD_SITE_URL:-}"
+PROD_API_URL="${PROD_API_URL:-}"
 
 # --- ラベル ---
 # 修正ループが「触ってはいけない」Issue に付けるラベル。
@@ -43,6 +59,11 @@ PROD_API_URL="https://world-issue-tracker-api.mktoho.workers.dev"
 SKIP_LABEL="needs-discussion"
 # 発見ループが立てた Issue に付けるラベル（人間が立てたものと区別する）。
 BOT_LABEL="found-by-loop"
+# ループ自身の健全性レポートを立てる先。既定は対象リポジトリだが、
+# ループの不調は対象プロダクトの課題ではないので、分けたい場合はここを変える
+# （targets/ か環境変数 LOOP_WATCH_REPO で上書きする）。
+WATCH_REPO="${LOOP_WATCH_REPO:-${WATCH_REPO:-$REPO}}"
+
 # 修正ループが最優先で着手する Issue のラベル。
 # 「bug かどうか」だけで並べるとユーザーから見た重要度が反映されないため、
 # 人間が「これを先に」と指定するための差し込み口。

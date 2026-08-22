@@ -307,7 +307,7 @@ TITLE_KEY="[loops:health]"
 
 # ラベルは検索より先に用意する。存在しないラベルで `--label` 検索をかけると
 # `gh` がエラーになり、下の取得失敗の分岐に落ちてしまう。
-gh label create "$WATCH_LABEL" -R "$REPO" --color "fbca04" \
+gh label create "$WATCH_LABEL" -R "$WATCH_REPO" --color "fbca04" \
 	--description "ループ自身の健全性に関する報告" >/dev/null 2>&1 || true
 
 # 既存の Issue を探す。
@@ -320,7 +320,7 @@ gh label create "$WATCH_LABEL" -R "$REPO" --color "fbca04" \
 # `--limit` にも注意。オープン Issue がこの数を超えると、
 # 対象の Issue が一覧に入らず同じことが起きる。
 # ラベルで絞れば健全性報告だけが対象になるので上限に当たらない。
-if ! EXISTING_RAW="$(gh issue list -R "$REPO" --state open --limit 100 \
+if ! EXISTING_RAW="$(gh issue list -R "$WATCH_REPO" --state open --limit 100 \
 	--label "$WATCH_LABEL" --json number,title 2>/dev/null)"; then
 	log "既存 Issue の取得に失敗しました。重複を避けるため今回は報告を見送ります" >&2
 	exit 1
@@ -355,14 +355,14 @@ BODY_FILE="$(mktemp)"
 
 POSTED=0
 if [ "$EXISTING" != "null" ] && [ -n "$EXISTING" ]; then
-	if gh issue comment "$EXISTING" -R "$REPO" --body-file "$BODY_FILE" >/dev/null; then
+	if gh issue comment "$EXISTING" -R "$WATCH_REPO" --body-file "$BODY_FILE" >/dev/null; then
 		log "既存 Issue #$EXISTING にコメントしました（$COUNT 件）"
 		POSTED=1
 	else
 		log "Issue #$EXISTING へのコメントに失敗しました" >&2
 	fi
 else
-	if URL="$(gh issue create -R "$REPO" \
+	if URL="$(gh issue create -R "$WATCH_REPO" \
 		--title "$TITLE_KEY 自動ループの実行に異常があります" \
 		--label "$WATCH_LABEL,$SKIP_LABEL" \
 		--body-file "$BODY_FILE")"; then

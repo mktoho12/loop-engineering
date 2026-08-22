@@ -140,7 +140,7 @@ gh issue search "<本番 Issue の id>" -R {{REPO}} --state all --match body
 `security` / `test-quality` / `correctness` など、既存コードの欠陥を扱う観点です。
 
 - テストを書いて実際に再現する（確認後は必ず削除する）
-- `bun run test` / `bun run lint` / `bun run check` を実行する
+- 検証コマンド（{{VERIFY_CMDS_INLINE}}）を実行する
 - 該当コードを読んで、その経路が実際に到達可能か確かめる
 
 再現できなかったものは Issue にしないでください。ノイズになります。

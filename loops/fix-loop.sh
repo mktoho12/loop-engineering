@@ -80,7 +80,7 @@ reclaim_worktree() {
 
 		# 数えられなかったときは 1 に倒す。0 に倒すとブランチを削除する側に
 		# 落ちるため、異常時にコミットを失う（既存のブランチ回収処理と同じ判断）。
-		count="$(git rev-list --count "origin/main..$branch" 2>/dev/null || echo 1)"
+		count="$(git rev-list --count "origin/$BASE_BRANCH..$branch" 2>/dev/null || echo 1)"
 		if [ "$count" -eq 0 ]; then
 			git branch -D "$branch" >/dev/null 2>&1 || true
 			log "  空ブランチ $branch を削除した"
@@ -162,7 +162,7 @@ else
 			for prefix in fix feat; do
 				CANDIDATE_BRANCH="$prefix/issue-$num"
 				git show-ref --verify --quiet "refs/heads/$CANDIDATE_BRANCH" || continue
-				COMMIT_COUNT="$(git rev-list --count "origin/main..$CANDIDATE_BRANCH" 2>/dev/null || echo 1)"
+				COMMIT_COUNT="$(git rev-list --count "origin/$BASE_BRANCH..$CANDIDATE_BRANCH" 2>/dev/null || echo 1)"
 				if [ "$COMMIT_COUNT" -eq 0 ]; then
 					STALE_BRANCH="$CANDIDATE_BRANCH"
 				fi
@@ -222,8 +222,8 @@ fi
 rm -f "$(worktree_keep_file "$ISSUE_NUM")"
 git branch -D "$BRANCH" 2>/dev/null || true
 
-git fetch --quiet origin main
-git worktree add --quiet -b "$BRANCH" "$WORKTREE" origin/main
+git fetch --quiet origin "$BASE_BRANCH"
+git worktree add --quiet -b "$BRANCH" "$WORKTREE" "origin/$BASE_BRANCH"
 # 誰がこの worktree を掴んでいるかを残す。これが無いと、次回以降この Issue が
 # 「作業中かもしれない」として永久にスキップされる。
 echo $$ > "$(worktree_pid_file "$ISSUE_NUM")"
@@ -267,14 +267,14 @@ if [ -d "$WORKDIR/node_modules" ] && [ ! -e "$WORKTREE/node_modules" ]; then
 	ln -s "$WORKDIR/node_modules" "$WORKTREE/node_modules"
 	log "node_modules をリンクした"
 fi
-for pkg in apps/api apps/web packages/shared; do
+for pkg in ${WORKSPACE_PKGS[@]+"${WORKSPACE_PKGS[@]}"}; do
 	if [ -d "$WORKDIR/$pkg/node_modules" ] && [ ! -e "$WORKTREE/$pkg/node_modules" ]; then
 		ln -s "$WORKDIR/$pkg/node_modules" "$WORKTREE/$pkg/node_modules"
 	fi
 done
 
 # gitignore されている環境変数ファイルも引き継ぐ（テストに必要）
-for envfile in apps/api/.dev.vars apps/web/.env.local; do
+for envfile in ${ENV_FILES[@]+"${ENV_FILES[@]}"}; do
 	if [ -f "$WORKDIR/$envfile" ] && [ ! -f "$WORKTREE/$envfile" ]; then
 		cp "$WORKDIR/$envfile" "$WORKTREE/$envfile"
 		log "$envfile をコピーした"
@@ -285,8 +285,14 @@ done
 ISSUE_BODY="$(gh issue view "$ISSUE_NUM" -R "$REPO" --json body,comments \
 	--jq '.body + "\n\n---\n\n## コメント\n\n" + ([.comments[] | "**\(.author.login)**: \(.body)"] | join("\n\n"))')"
 
+# 検証コマンドは対象ごとに違うので、設定から流し込む（1行1コマンド）。
+VERIFY_BLOCK="$(printf '%s\n' ${VERIFY_CMDS[@]+"${VERIFY_CMDS[@]}"})"
+
 PROMPT="$(cat "$PROMPT_DIR/fix.md")"
 PROMPT="${PROMPT//\{\{REPO\}\}/$REPO}"
+PROMPT="${PROMPT//\{\{BASE_BRANCH\}\}/$BASE_BRANCH}"
+PROMPT="${PROMPT//\{\{VERIFY_CMDS\}\}/$VERIFY_BLOCK}"
+PROMPT="${PROMPT//\{\{PKG_MANAGER\}\}/${PKG_MANAGER:-bun}}"
 PROMPT="${PROMPT//\{\{WORKDIR\}\}/$WORKTREE}"
 PROMPT="${PROMPT//\{\{BRANCH\}\}/$BRANCH}"
 PROMPT="${PROMPT//\{\{ISSUE_NUM\}\}/$ISSUE_NUM}"
@@ -348,13 +354,13 @@ else
 	log "WARN: PR が見つからない。ログを確認: $LOG_FILE"
 
 	# ブランチにコミットがあるかで、後始末の仕方が変わる。
-	COMMITS="$(git rev-list --count "origin/main..$BRANCH" 2>/dev/null || echo 0)"
+	COMMITS="$(git rev-list --count "origin/$BASE_BRANCH..$BRANCH" 2>/dev/null || echo 0)"
 	if [ "$COMMITS" -gt 0 ]; then
 		# 仕事は終わっているが push か PR 作成で失敗した。ブランチを残して人間に知らせる。
 		# ここで消すと完成した作業が失われる。
 		log "  ⚠️  $COMMITS 件のコミットが $BRANCH に残っている（push または PR 作成に失敗）"
 		log "     内容を確認して、必要なら手動で PR を作ってください:"
-		log "       git log origin/main..$BRANCH"
+		log "       git log origin/$BASE_BRANCH..$BRANCH"
 		log "       git push -u origin $BRANCH && gh pr create -R $REPO --head $BRANCH"
 	else
 		# 何も成果がない。空ブランチを残すと次回以降ずっとスキップされるので消す。
